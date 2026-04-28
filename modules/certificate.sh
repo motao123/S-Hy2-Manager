@@ -141,36 +141,50 @@ certificate_management() {
 
 show_certificate_status() {
     echo -e "${YELLOW}当前证书状态:${NC}"
-    
+
     # 检查配置文件中的证书配置
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
-        if grep -q "^tls:" "$HYSTERIA_CONFIG"; then
+        if grep -q "^acme:" "$HYSTERIA_CONFIG"; then
+            echo -e "证书模式: ${GREEN}ACME自动证书${NC}"
+            local domains
+            domains=$(grep -A 5 "^acme:" "$HYSTERIA_CONFIG" | grep "domains:" -A 5 | grep -E "^\s*-" | sed 's/^\s*-\s*//' | tr '\n' ' ')
+            echo -e "ACME域名: ${domains:-未设置}"
+        elif grep -q "^tls:" "$HYSTERIA_CONFIG"; then
             local cert_file
             local key_file
-            cert_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}')
-            key_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}')
-            
-            echo -e "证书模式: ${GREEN}手动证书${NC}"
+            cert_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}' | tr -d '"' | tr -d "'")
+            key_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}' | tr -d '"' | tr -d "'")
+
+            # 判断证书类型：自签名 or 自定义
+            if [[ -n "$cert_file" && -f "$cert_file" ]]; then
+                local issuer
+                issuer=$(openssl x509 -in "$cert_file" -noout -issuer 2>/dev/null)
+                if echo "$issuer" | grep -qi "self-signed\|O=Organization\|CN=.*test\|Issuer:.*Subject:"; then
+                    echo -e "证书模式: ${GREEN}自签名证书${NC}"
+                elif echo "$issuer" | grep -qi "Let's Encrypt\|ZeroSSL\|Buypass"; then
+                    echo -e "证书模式: ${GREEN}ACME证书(已生成)${NC}"
+                else
+                    echo -e "证书模式: ${GREEN}自定义证书${NC}"
+                fi
+            else
+                echo -e "证书模式: ${YELLOW}手动证书${NC}"
+            fi
+
             echo -e "证书文件: ${cert_file:-未设置}"
             echo -e "密钥文件: ${key_file:-未设置}"
-            
+
             # 检查文件是否存在
             if [[ -n "$cert_file" && -f "$cert_file" ]]; then
                 echo -e "证书文件状态: ${GREEN}存在${NC}"
             else
                 echo -e "证书文件状态: ${RED}不存在${NC}"
             fi
-            
+
             if [[ -n "$key_file" && -f "$key_file" ]]; then
                 echo -e "密钥文件状态: ${GREEN}存在${NC}"
             else
                 echo -e "密钥文件状态: ${RED}不存在${NC}"
             fi
-        elif grep -q "^acme:" "$HYSTERIA_CONFIG"; then
-            echo -e "证书模式: ${GREEN}ACME自动证书${NC}"
-            local domains
-            domains=$(grep -A 5 "^acme:" "$HYSTERIA_CONFIG" | grep "domains:" -A 5 | grep -E "^\s*-" | sed 's/^\s*-\s*//' | tr '\n' ' ')
-            echo -e "ACME域名: ${domains:-未设置}"
         else
             echo -e "证书模式: ${YELLOW}未配置${NC}"
         fi
@@ -355,7 +369,7 @@ show_certificate_info() {
     # 获取证书文件路径
     local cert_file
     if grep -q "^tls:" "$HYSTERIA_CONFIG"; then
-        cert_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}')
+        cert_file=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}' | tr -d '"' | tr -d "'")
     else
         log_warn "未配置手动证书，检查ACME证书..."
         # 查找ACME证书
@@ -484,8 +498,8 @@ manage_certificate_paths() {
     if grep -q "^tls:" "$HYSTERIA_CONFIG"; then
         local current_cert
         local current_key
-        current_cert=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}')
-        current_key=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}')
+        current_cert=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}' | tr -d '"' | tr -d "'")
+        current_key=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}' | tr -d '"' | tr -d "'")
         
         echo -e "${YELLOW}当前证书配置:${NC}"
         echo "证书文件: $current_cert"
@@ -510,7 +524,7 @@ manage_certificate_paths() {
             read -r new_cert
             if [[ -f "$new_cert" ]]; then
                 local current_key
-                current_key=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}')
+                current_key=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "key:" | awk '{print $2}' | tr -d '"' | tr -d "'")
                 update_tls_config "$new_cert" "$current_key"
             else
                 log_error "证书文件不存在"
@@ -521,7 +535,7 @@ manage_certificate_paths() {
             read -r new_key
             if [[ -f "$new_key" ]]; then
                 local current_cert
-                current_cert=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}')
+                current_cert=$(grep -A 5 "^tls:" "$HYSTERIA_CONFIG" | grep "cert:" | awk '{print $2}' | tr -d '"' | tr -d "'")
                 update_tls_config "$current_cert" "$new_key"
             else
                 log_error "私钥文件不存在"
