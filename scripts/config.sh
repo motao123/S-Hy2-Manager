@@ -439,44 +439,39 @@ check_port_hopping_status() {
     interface=$(get_network_interface)
     local target_port
     target_port=$(get_current_listen_port)
-    
+
     # 多种检测方式
     local found=false
-    
-    # 方式1: 检查 REDIRECT 规则到目标端口
-    if iptables -t nat -L PREROUTING -n --line-numbers 2>/dev/null | grep -q "REDIRECT.*dpt:.*--to-ports $target_port"; then
-        found=true
-    fi
-    
-    # 方式2: 检查端口范围规则
-    if iptables -t nat -L PREROUTING -n 2>/dev/null | grep -E "REDIRECT.*dpts:[0-9]+:[0-9]+.*--to-ports $target_port" >/dev/null; then
-        found=true
-    fi
-    
-    # 方式3: 检查保存的配置文件
-    if [[ -f "$HYSTERIA_PORT_HOPPING_CONF" ]]; then
-        _read_port_hopping_conf
-        if [[ -n "$PORT_HOPPING_IPTABLES_RULE" ]]; then
-            # 验证规则是否实际存在
-            local rule_parts
-            IFS=' ' read -ra rule_parts <<< "$PORT_HOPPING_IPTABLES_RULE"
-            local check_rule=""
-            for part in "${rule_parts[@]}"; do
-                if [[ "$part" != "iptables" && "$part" != "-t" && "$part" != "nat" && "$part" != "-A" ]]; then
-                    check_rule+="$part "
-                fi
-            done
-            if iptables -t nat -C PREROUTING $check_rule 2>/dev/null; then
-                found=true
-            fi
+
+    # 方式1: 检查 nftables 规则
+    if command -v nft >/dev/null 2>&1; then
+        if nft list chain ip nat prerouting 2>/dev/null | grep -q "redirect to :$target_port"; then
+            found=true
         fi
     fi
-    
-    # 方式4: 通用检查 - 查找所有 REDIRECT 到目标端口的规则
-    if iptables -t nat -S PREROUTING 2>/dev/null | grep -E "REDIRECT.*--to-ports $target_port" >/dev/null; then
+
+    # 方式2: 检查 iptables REDIRECT 规则到目标端口
+    if command -v iptables >/dev/null 2>&1; then
+        if iptables -t nat -L PREROUTING -n --line-numbers 2>/dev/null | grep -q "REDIRECT.*dpt:.*--to-ports $target_port"; then
+            found=true
+        fi
+
+        # 检查端口范围规则
+        if iptables -t nat -L PREROUTING -n 2>/dev/null | grep -E "REDIRECT.*dpts:[0-9]+:[0-9]+.*--to-ports $target_port" >/dev/null; then
+            found=true
+        fi
+
+        # 通用检查 - 查找所有 REDIRECT 到目标端口的规则
+        if iptables -t nat -S PREROUTING 2>/dev/null | grep -E "REDIRECT.*--to-ports $target_port" >/dev/null; then
+            found=true
+        fi
+    fi
+
+    # 方式3: 检查保存的配置文件
+    if [[ -f "$HYSTERIA_PORT_HOPPING_CONF" ]]; then
         found=true
     fi
-    
+
     if $found; then
         return 0  # 已开启
     else
@@ -527,53 +522,71 @@ clear_port_hopping_rules() {
     local cleared=false
     local interface
     interface=$(get_network_interface)
-    
+
     echo -e "${BLUE}正在清除端口跳跃规则...${NC}"
-    
-    # 方式1: 使用保存的配置文件中的规则（使用独立变量构建命令，避免 eval）
-    if [[ -f "$HYSTERIA_PORT_HOPPING_CONF" ]]; then
-        _read_port_hopping_conf
-        if [[ -n "$PORT_HOPPING_INTERFACE" && -n "$PORT_HOPPING_START_PORT" && -n "$PORT_HOPPING_END_PORT" && -n "$PORT_HOPPING_TARGET_PORT" ]]; then
-            # 使用数组构建删除规则（-D 替代 -A）
-            if iptables -t nat -D PREROUTING -i "$PORT_HOPPING_INTERFACE" -p udp --dport "$PORT_HOPPING_START_PORT:$PORT_HOPPING_END_PORT" -j REDIRECT --to-ports "$PORT_HOPPING_TARGET_PORT" 2>/dev/null; then
-                echo "已清除配置文件中记录的规则"
-                cleared=true
+
+    # 优先清理 nftables 规则
+    if command -v nft >/dev/null 2>&1; then
+        local target_port
+        target_port=$(get_current_listen_port)
+        local nft_handle
+        while IFS= read -r line; do
+            if [[ "$line" =~ handle[[:space:]]+([0-9]+) ]] && [[ "$line" =~ "redirect to :$target_port" ]]; then
+                nft_handle="${BASH_REMATCH[1]}"
+                if nft delete rule ip nat prerouting handle "$nft_handle" 2>/dev/null; then
+                    echo "已清除 nftables 规则 (handle: $nft_handle)"
+                    cleared=true
+                fi
+            fi
+        done < <(nft list chain ip nat prerouting 2>/dev/null)
+    fi
+
+    # 回退清理 iptables 规则
+    if command -v iptables >/dev/null 2>&1; then
+        # 使用保存的配置文件中的规则
+        if [[ -f "$HYSTERIA_PORT_HOPPING_CONF" ]]; then
+            _read_port_hopping_conf
+            if [[ -n "$PORT_HOPPING_INTERFACE" && -n "$PORT_HOPPING_START_PORT" && -n "$PORT_HOPPING_END_PORT" && -n "$PORT_HOPPING_TARGET_PORT" ]]; then
+                if iptables -t nat -D PREROUTING -i "$PORT_HOPPING_INTERFACE" -p udp --dport "$PORT_HOPPING_START_PORT:$PORT_HOPPING_END_PORT" -j REDIRECT --to-ports "$PORT_HOPPING_TARGET_PORT" 2>/dev/null; then
+                    echo "已清除配置文件中记录的规则"
+                    cleared=true
+                fi
             fi
         fi
+
+        # 清除所有到目标端口的REDIRECT规则
+        local target_port
+        target_port=$(get_current_listen_port)
+        local rules_to_delete=()
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^-A\ PREROUTING.*REDIRECT.*--to-ports\ $target_port ]]; then
+                rules_to_delete+=("${line/-A/-D}")
+            fi
+        done < <(iptables -t nat -S PREROUTING 2>/dev/null)
+
+        for rule in "${rules_to_delete[@]}"; do
+            if iptables -t nat $rule 2>/dev/null; then
+                echo "已清除规则: $rule"
+                cleared=true
+            fi
+        done
+
+        # 通用清理方式（基于行号）
+        local line_numbers=($(iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*--to-ports $target_port" | awk '{print $1}' | sort -rn))
+        for line_num in "${line_numbers[@]}"; do
+            if iptables -t nat -D PREROUTING "$line_num" 2>/dev/null; then
+                echo "已清除第 $line_num 行规则"
+                cleared=true
+            fi
+        done
     fi
-    
-    # 方式2: 清除所有到目标端口的REDIRECT规则
-    local target_port
-    target_port=$(get_current_listen_port)
-    local rules_to_delete=()
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^-A\ PREROUTING.*REDIRECT.*--to-ports\ $target_port ]]; then
-            rules_to_delete+=("${line/-A/-D}")
-        fi
-    done < <(iptables -t nat -S PREROUTING 2>/dev/null)
-    
-    for rule in "${rules_to_delete[@]}"; do
-        if iptables -t nat $rule 2>/dev/null; then
-            echo "已清除规则: $rule"
-            cleared=true
-        fi
-    done
-    
-    # 方式3: 通用清理方式（基于行号）
-    local line_numbers=($(iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*--to-ports $target_port" | awk '{print $1}' | sort -rn))
-    for line_num in "${line_numbers[@]}"; do
-        if iptables -t nat -D PREROUTING "$line_num" 2>/dev/null; then
-            echo "已清除第 $line_num 行规则"
-            cleared=true
-        fi
-    done
-    
+
     # 删除配置文件
     if [[ -f "$HYSTERIA_PORT_HOPPING_CONF" ]]; then
         rm -f "$HYSTERIA_PORT_HOPPING_CONF"
         echo "已删除端口跳跃配置文件"
     fi
-    
+
     if $cleared; then
         echo -e "${GREEN}端口跳跃规则清除成功${NC}"
     else
@@ -682,32 +695,67 @@ add_port_hopping_rules() {
     local start_port=${1:-20000}
     local end_port=${2:-50000}
     local target_port=${3:-$(get_current_listen_port)}
-    
+
     echo -e "${BLUE}正在添加端口跳跃规则...${NC}"
-    
-    # 使用数组构建 iptables 命令（避免 eval 安全风险）
-    local -a iptables_args=( -t nat -A PREROUTING -i "$interface" -p udp --dport "$start_port:$end_port" -j REDIRECT --to-ports "$target_port" )
-    local iptables_rule="iptables -t nat -A PREROUTING -i $interface -p udp --dport $start_port:$end_port -j REDIRECT --to-ports $target_port"
-    
-    if iptables "${iptables_args[@]}" 2>/dev/null; then
-        echo -e "${GREEN}端口跳跃规则添加成功${NC}"
-        echo "规则: $start_port-$end_port -> $target_port (接口: $interface)"
-        
-        # 保存配置到文件
-        cat > "$HYSTERIA_PORT_HOPPING_CONF" << EOF
+
+    # 优先使用 nftables（Debian 12+ 默认），回退 iptables
+    if command -v nft >/dev/null 2>&1; then
+        # 确保 nat 表和 PREROUTING 链存在
+        nft list table ip nat &>/dev/null || nft add table ip nat
+        nft list chain ip nat prerouting &>/dev/null || nft add chain ip nat prerouting '{ type nat hook prerouting priority -100 ; }'
+
+        if nft add rule ip nat prerouting iifname "$interface" udp dport "$start_port"-"$end_port" redirect to :"$target_port" 2>/dev/null; then
+            echo -e "${GREEN}端口跳跃规则添加成功 (nftables)${NC}"
+            echo "规则: $start_port-$end_port -> $target_port (接口: $interface)"
+
+            # 保存配置到文件
+            cat > "$HYSTERIA_PORT_HOPPING_CONF" << EOF
 # 端口跳跃配置
 # 生成时间: $(date)
 INTERFACE=$interface
 START_PORT=$start_port
 END_PORT=$end_port
 TARGET_PORT=$target_port
+FIREWALL_BACKEND=nftables
+EOF
+            echo "配置已保存到: /etc/hysteria/port-hopping.conf"
+            return 0
+        else
+            echo -e "${YELLOW}nftables 添加规则失败，尝试 iptables...${NC}"
+        fi
+    fi
+
+    # 回退到 iptables
+    if command -v iptables >/dev/null 2>&1; then
+        # 使用数组构建 iptables 命令（避免 eval 安全风险）
+        local -a iptables_args=( -t nat -A PREROUTING -i "$interface" -p udp --dport "$start_port:$end_port" -j REDIRECT --to-ports "$target_port" )
+        local iptables_rule="iptables -t nat -A PREROUTING -i $interface -p udp --dport $start_port:$end_port -j REDIRECT --to-ports $target_port"
+
+        if iptables "${iptables_args[@]}" 2>/dev/null; then
+            echo -e "${GREEN}端口跳跃规则添加成功 (iptables)${NC}"
+            echo "规则: $start_port-$end_port -> $target_port (接口: $interface)"
+
+            # 保存配置到文件
+            cat > "$HYSTERIA_PORT_HOPPING_CONF" << EOF
+# 端口跳跃配置
+# 生成时间: $(date)
+INTERFACE=$interface
+START_PORT=$start_port
+END_PORT=$end_port
+TARGET_PORT=$target_port
+FIREWALL_BACKEND=iptables
 IPTABLES_RULE="$iptables_rule"
 EOF
-        echo "配置已保存到: /etc/hysteria/port-hopping.conf"
-        return 0
+            echo "配置已保存到: /etc/hysteria/port-hopping.conf"
+            return 0
+        else
+            echo -e "${RED}端口跳跃规则添加失败${NC}"
+            echo "请检查 iptables 权限或网络接口设置"
+            return 1
+        fi
     else
         echo -e "${RED}端口跳跃规则添加失败${NC}"
-        echo "请检查 iptables 权限或网络接口设置"
+        echo "系统没有可用的防火墙工具 (nftables/iptables)"
         return 1
     fi
 }
