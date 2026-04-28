@@ -256,22 +256,23 @@ generate_acl_file() {
     local rules=""
     case $choice in
         1)
-            rules="# 中国 IP 直连\n\ndirect(all, geoip:cn)\n"
+            rules="# 中国 IP 直连\n\ndirect(geoip:cn)\n"
             ;;
         2)
-            rules="# 中国 IP + 私有 IP 直连\n\ndirect(all, geoip:cn)\ndirect(all, geoip:private)\n"
+            rules="# 中国 IP + 私有 IP 直连\n\ndirect(geoip:cn)\ndirect(geoip:private)\n"
             ;;
         3)
-            rules="# 屏蔽广告域名\n\nblock(all, geosite:category-ads-all)\n"
+            rules="# 屏蔽广告域名\n\nblock(geosite:category-ads-all)\n"
             ;;
         4)
-            rules="# 屏蔽中国区追踪 + 广告\n\nblock(all, geosite:cn-trackers)\nblock(all, geosite:category-ads-all)\n"
+            rules="# 屏蔽中国区追踪 + 广告\n\nblock(geosite:cn-trackers)\nblock(geosite:category-ads-all)\n"
             ;;
         5)
             echo -e "${YELLOW}规则语法:${NC}"
-            echo -e "  direct(all, geoip:cn)       # 中国IP直连"
-            echo -e "  block(all, geosite:ads)     # 屏蔽广告"
-            echo -e "  proxy(all, geosite:netflix) # Netflix走代理"
+            echo -e "  direct(geoip:cn)            # 中国IP直连"
+            echo -e "  block(geosite:category-ads-all)  # 屏蔽广告"
+            echo -e "  proxy(geosite:netflix)      # Netflix走代理"
+            echo -e "  my_outbound(geosite:google) # 自定义出站规则名"
             echo ""
             edit_acl_rules
             return
