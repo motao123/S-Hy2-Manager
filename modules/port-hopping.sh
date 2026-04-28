@@ -11,6 +11,7 @@ _read_port_hopping_conf_local() {
     PORT_HOPPING_START_PORT=""
     PORT_HOPPING_END_PORT=""
     PORT_HOPPING_TARGET_PORT=""
+    PORT_HOPPING_BACKEND=""
 
     [[ -f "$config_file" ]] || return 1
 
@@ -40,6 +41,12 @@ _read_port_hopping_conf_local() {
                 value="${value%\"}"
                 value="${value#\"}"
                 [[ "$value" =~ ^[0-9]+$ ]] && PORT_HOPPING_TARGET_PORT="$value"
+                ;;
+            FIREWALL_BACKEND=*)
+                value="${line#FIREWALL_BACKEND=}"
+                value="${value%\"}"
+                value="${value#\"}"
+                [[ "$value" =~ ^(iptables|nftables)$ ]] && PORT_HOPPING_BACKEND="$value"
                 ;;
         esac
     done < "$config_file"
@@ -580,26 +587,71 @@ cleanup_port_hopping() {
     if [[ -f "/etc/hysteria/port-hopping.conf" ]]; then
         _read_port_hopping_conf_local
         if [[ -n "$PORT_HOPPING_INTERFACE" && -n "$PORT_HOPPING_START_PORT" && -n "$PORT_HOPPING_END_PORT" && -n "$PORT_HOPPING_TARGET_PORT" ]]; then
-            iptables -t nat -D PREROUTING -i "$PORT_HOPPING_INTERFACE" -p udp --dport "$PORT_HOPPING_START_PORT:$PORT_HOPPING_END_PORT" -j REDIRECT --to-ports "$PORT_HOPPING_TARGET_PORT" 2>/dev/null
-            log_info "已清理端口跳跃规则"
-        fi
-    fi
-    
-    # 清理其他可能的端口跳跃规则
-    local rules_cleared=0
-    # 清理所有REDIRECT规则（不仅仅限于443端口）
-    while IFS= read -r line_num; do
-        if [[ -n "$line_num" ]]; then
-            if iptables -t nat -D PREROUTING "$line_num" 2>/dev/null; then
-                ((rules_cleared++))
+            # 根据记录的后端选择清理方式，未知时自动探测
+            local backend="$PORT_HOPPING_BACKEND"
+            if [[ -z "$backend" ]]; then
+                if command -v nft >/dev/null 2>&1 && nft list table ip nat &>/dev/null; then
+                    backend="nftables"
+                elif command -v iptables >/dev/null 2>&1; then
+                    backend="iptables"
+                fi
+            fi
+
+            if [[ "$backend" == "nftables" ]]; then
+                # nftables: 删除匹配的 redirect 规则
+                local handle
+                handle=$(nft -a list chain ip nat prerouting 2>/dev/null | \
+                    grep "iifname \"${PORT_HOPPING_INTERFACE}\" udp dport ${PORT_HOPPING_START_PORT}-${PORT_HOPPING_END_PORT} redirect to :${PORT_HOPPING_TARGET_PORT}" | \
+                    grep -o 'handle [0-9]*' | awk '{print $2}')
+                if [[ -n "$handle" ]]; then
+                    nft delete rule ip nat prerouting handle "$handle" 2>/dev/null
+                    log_info "已清理端口跳跃规则 (nftables, handle $handle)"
+                else
+                    # 模糊匹配：按接口和目标端口删除
+                    nft -a list chain ip nat prerouting 2>/dev/null | \
+                        grep "iifname \"${PORT_HOPPING_INTERFACE}\".*redirect to :${PORT_HOPPING_TARGET_PORT}" | \
+                        grep -o 'handle [0-9]*' | awk '{print $2}' | while read -r h; do
+                        nft delete rule ip nat prerouting handle "$h" 2>/dev/null
+                    done
+                    log_info "已清理端口跳跃规则 (nftables)"
+                fi
+            else
+                # iptables 回退
+                iptables -t nat -D PREROUTING -i "$PORT_HOPPING_INTERFACE" -p udp --dport "$PORT_HOPPING_START_PORT:$PORT_HOPPING_END_PORT" -j REDIRECT --to-ports "$PORT_HOPPING_TARGET_PORT" 2>/dev/null
+                log_info "已清理端口跳跃规则 (iptables)"
             fi
         fi
-    done < <(iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*--to-ports" | awk '{print $1}' | tac)
-    
+    fi
+
+    # 清理其他可能的端口跳跃规则（双后端扫描）
+    local rules_cleared=0
+
+    # nftables: 清理所有 redirect 规则
+    if command -v nft >/dev/null 2>&1; then
+        while IFS= read -r handle_num; do
+            if [[ -n "$handle_num" ]]; then
+                if nft delete rule ip nat prerouting handle "$handle_num" 2>/dev/null; then
+                    ((rules_cleared++))
+                fi
+            fi
+        done < <(nft -a list chain ip nat prerouting 2>/dev/null | grep "redirect to :" | grep -o 'handle [0-9]*' | awk '{print $2}' | sort -rn)
+    fi
+
+    # iptables: 清理所有 REDIRECT 规则
+    if command -v iptables >/dev/null 2>&1; then
+        while IFS= read -r line_num; do
+            if [[ -n "$line_num" ]]; then
+                if iptables -t nat -D PREROUTING "$line_num" 2>/dev/null; then
+                    ((rules_cleared++))
+                fi
+            fi
+        done < <(iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*--to-ports" | awk '{print $1}' | tac)
+    fi
+
     if [[ $rules_cleared -gt 0 ]]; then
         log_info "清理了 $rules_cleared 条端口跳跃规则"
     fi
-    
+
     # 删除配置文件
     rm -f "/etc/hysteria/port-hopping.conf" 2>/dev/null
 }

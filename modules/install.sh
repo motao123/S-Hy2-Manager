@@ -242,10 +242,18 @@ uninstall_everything() {
         userdel -r hysteria 2>/dev/null
     fi
     
-    # 清理 iptables 规则残留
-    iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*443" | awk '{print $1}' | tac | while read -r line; do
-        iptables -t nat -D PREROUTING "$line" 2>/dev/null
-    done
+    # 清理 iptables/nftables 规则残留
+    if command -v nft >/dev/null 2>&1; then
+        # nftables: 删除 nat prerouting 链中所有 redirect 规则
+        nft -a list chain ip nat prerouting 2>/dev/null | grep "redirect to :443" | grep -o 'handle [0-9]*' | awk '{print $2}' | sort -rn | while read -r h; do
+            nft delete rule ip nat prerouting handle "$h" 2>/dev/null
+        done
+    fi
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*443" | awk '{print $1}' | tac | while read -r line; do
+            iptables -t nat -D PREROUTING "$line" 2>/dev/null
+        done
+    fi
     
     # 清理 systemd 残留
     rm -f /etc/systemd/system/multi-user.target.wants/hysteria-server.service 2>/dev/null
@@ -280,7 +288,11 @@ uninstall_everything() {
 
 check_dependencies() {
     local missing_deps=()
-    local required_cmds=("curl" "systemctl" "iptables")
+    local required_cmds=("curl" "systemctl")
+    # iptables 或 nftables 至少需要一个（端口跳跃功能依赖）
+    if ! command -v iptables &>/dev/null && ! command -v nft &>/dev/null; then
+        required_cmds+=("iptables/nft")
+    fi
     
     for cmd in "${required_cmds[@]}"; do
         if ! command -v "$cmd" &> /dev/null; then
