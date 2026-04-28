@@ -55,7 +55,7 @@ show_traffic_summary() {
     local api_available=false
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
         local api_addr
-        api_addr=$(grep -A5 "^http:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "listen:" | awk '{print $2}')
+        api_addr=$(grep -A5 "^http:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "listen:" | awk '{print $2}' || true)
         if [[ -n "$api_addr" ]]; then
             api_available=true
         fi
@@ -78,7 +78,8 @@ show_traffic_summary() {
 
         # 从 journalctl 统计连接日志
         local total_conns
-        total_conns=$(journalctl -u "$HYSTERIA_SERVICE" --no-pager -q --since today 2>/dev/null | grep -c "new connection" || echo 0)
+        total_conns=$(journalctl -u "$HYSTERIA_SERVICE" --no-pager -q --since today 2>/dev/null | grep -c "new connection" || true)
+        total_conns=${total_conns:-0}
         echo -e "今日连接数: ${GREEN}$total_conns${NC}"
 
         # 网络流量统计
@@ -159,7 +160,8 @@ show_user_traffic() {
     echo -e "${CYAN}从日志中统计用户连接:${NC}"
     while IFS= read -r username; do
         local count
-        count=$(journalctl -u "$HYSTERIA_SERVICE" --no-pager -q --since today 2>/dev/null | grep -c "$username" || echo 0)
+        count=$(journalctl -u "$HYSTERIA_SERVICE" --no-pager -q --since today 2>/dev/null | grep -c "$username" || true)
+        count=${count:-0}
         echo -e "  ${GREEN}$username${NC}: $count 条日志"
     done < <(get_all_users 2>/dev/null)
 }
@@ -167,12 +169,17 @@ show_user_traffic() {
 # ========== 字节可读化 ==========
 human_readable_bytes() {
     local bytes="${1:-0}"
+    # 仅使用 awk 做浮点格式化，避免依赖最小化系统中可能未安装的 bc。
+    if ! [[ "$bytes" =~ ^[0-9]+$ ]]; then
+        bytes=0
+    fi
+
     if [[ $bytes -ge 1073741824 ]]; then
-        echo "$(echo "scale=2; $bytes / 1073741824" | bc) GB"
+        awk -v bytes="$bytes" 'BEGIN { printf "%.2f GB", bytes / 1073741824 }'
     elif [[ $bytes -ge 1048576 ]]; then
-        echo "$(echo "scale=2; $bytes / 1048576" | bc) MB"
+        awk -v bytes="$bytes" 'BEGIN { printf "%.2f MB", bytes / 1048576 }'
     elif [[ $bytes -ge 1024 ]]; then
-        echo "$(echo "scale=2; $bytes / 1024" | bc) KB"
+        awk -v bytes="$bytes" 'BEGIN { printf "%.2f KB", bytes / 1024 }'
     else
         echo "$bytes B"
     fi

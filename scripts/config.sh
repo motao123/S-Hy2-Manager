@@ -1060,10 +1060,10 @@ http:
   listen: 127.0.0.1:8080
 
 # 节点链接 (Hysteria2://)
-hysteria2://$auth_password@$server_ip:443?sni=$sni_domain&insecure=1&obfs=salamander&obfs-password=$obfs_password#Hysteria2-QuickSetup
+hysteria2://$(urlencode "$auth_password")@$server_address?sni=$sni_domain&insecure=1&obfs=salamander&obfs-password=$(urlencode "$obfs_password")#Hysteria2-QuickSetup
 
 # 订阅链接 (Base64编码)
-$(echo "hysteria2://$auth_password@$server_ip:443?sni=$sni_domain&insecure=1&obfs=salamander&obfs-password=$obfs_password#Hysteria2-QuickSetup" | base64 -w 0)
+$(printf '%s' "hysteria2://$(urlencode "$auth_password")@$server_address?sni=$sni_domain&insecure=1&obfs=salamander&obfs-password=$(urlencode "$obfs_password")#Hysteria2-QuickSetup" | base64_one_line)
 EOF
 
     echo -e "${GREEN}节点信息已保存到: $node_file${NC}"

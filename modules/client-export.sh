@@ -71,40 +71,57 @@ get_listen_port() {
 
 # ========== 获取认证信息 ==========
 get_client_auth_info() {
-    # 输出格式: mode|user_or_pass
+    # 输出格式: mode|user_or_pass（仅最终结果走 stdout，交互菜单走 stderr）
+    # 密码值会去除 YAML 引号
     local auth_mode
     auth_mode=$(get_auth_mode 2>/dev/null || echo "password")
 
     if [[ "$auth_mode" == "userpass" ]]; then
-        # 多用户模式，让用户选择
-        echo -e "${YELLOW}选择要导出的用户:${NC}"
+        # 多用户模式，让用户选择（菜单输出到 stderr，不污染返回值）
+        echo -e "${YELLOW}选择要导出的用户:${NC}" >&2
         local users
         users=$(get_all_users)
         local i=1
         while IFS= read -r user; do
-            echo -e "  ${GREEN}$i.${NC} $user"
+            echo -e "  ${GREEN}$i.${NC} $user" >&2
             ((i++))
         done <<< "$users"
-        echo -n "请选择 [1-$((i-1))]: "
+        echo -n "请选择 [1-$((i-1))]: " >&2
         local choice
         read -r choice
 
         local selected_user
         selected_user=$(echo "$users" | sed -n "${choice}p")
         local password
-        password=$(grep "^\s*${selected_user}:" "$HYSTERIA_CONFIG" | awk '{print $2}')
+        # 从 userpass 段逐行解析密码，避免用户名进入 grep 正则，并去除 YAML 引号
+        password=""
+        local line in_userpass=false
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" =~ ^[[:space:]]*userpass:[[:space:]]*$ ]]; then
+                in_userpass=true
+                continue
+            elif [[ "$in_userpass" == true && "$line" =~ ^[[:space:]]*([a-zA-Z0-9_.-]+):[[:space:]]*(.*)$ ]]; then
+                if [[ "${BASH_REMATCH[1]}" == "$selected_user" ]]; then
+                    password=$(yaml_unquote_scalar "${BASH_REMATCH[2]}")
+                    break
+                fi
+            elif [[ "$in_userpass" == true && "$line" =~ ^[a-zA-Z] ]]; then
+                break
+            fi
+        done < "$HYSTERIA_CONFIG"
         echo "userpass|${selected_user}:${password}"
     else
         # 单密码模式
         local password
         password=$(grep -A1 "type: password" "$HYSTERIA_CONFIG" 2>/dev/null | grep "password:" | awk '{print $2}')
+        password=$(yaml_unquote_scalar "$password")
         echo "password|${password}"
     fi
 }
 
 # ========== 获取混淆信息 ==========
 get_obfs_info() {
-    # 输出格式: type:password 或空
+    # 输出格式: type:password 或空（密码已去除 YAML 引号）
     if [[ ! -f "$HYSTERIA_CONFIG" ]]; then
         return
     fi
@@ -112,6 +129,7 @@ get_obfs_info() {
     if grep -q "type: salamander" "$HYSTERIA_CONFIG" 2>/dev/null; then
         local obfs_pass
         obfs_pass=$(grep -A3 "type: salamander" "$HYSTERIA_CONFIG" | grep "password:" | awk '{print $2}')
+        obfs_pass=$(yaml_unquote_scalar "$obfs_pass")
         echo "salamander:${obfs_pass}"
     fi
 }
@@ -142,8 +160,8 @@ generate_client_yaml() {
     local auth_mode="${auth_info%%|*}"
     local auth_value="${auth_info##*|}"
 
-    local server_ip
-    server_ip=$(get_server_ip)
+    local server_address
+    server_address=$(get_server_address)
     local port
     port=$(get_listen_port)
     local sni
@@ -163,12 +181,12 @@ generate_client_yaml() {
 # Hysteria2 客户端配置
 # 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
 
-server: ${server_ip}:${port}
+server: ${server_address}:${port}
 
-auth: ${auth_value}
+auth: $(yaml_quote_scalar "${auth_value}")
 
 tls:
-  sni: ${sni:-$server_ip}
+  sni: ${sni:-$server_address}
   insecure: ${insecure}
 YAMLCONF
 )
@@ -182,7 +200,7 @@ YAMLCONF
 obfs:
   type: ${obfs_type}
   ${obfs_type}:
-    password: ${obfs_pass}
+    password: $(yaml_quote_scalar "${obfs_pass}")
 YAMLCONF
 )
     fi
@@ -226,8 +244,8 @@ generate_client_uri() {
     local auth_mode="${auth_info%%|*}"
     local auth_value="${auth_info##*|}"
 
-    local server_ip
-    server_ip=$(get_server_ip)
+    local server_address
+    server_address=$(get_server_address)
     local port
     port=$(get_listen_port)
     local sni
@@ -243,22 +261,37 @@ generate_client_uri() {
 
     # 构建 URI
     # hysteria2://auth@server:port?sni=xxx&insecure=0&obfs=salamander&obfs-password=xxx
-    local uri="hysteria2://${auth_value}@${server_ip}:${port}?"
+    # auth 中的特殊字符必须 URL 编码
+    # 多用户模式: auth_value = "username:password"，需要分别编码
+    local encoded_auth
+    if [[ "$auth_mode" == "userpass" ]]; then
+        local uri_user="${auth_value%%:*}"
+        local uri_pass="${auth_value#*:}"
+        encoded_auth="$(urlencode "$uri_user"):$(urlencode "$uri_pass")"
+    else
+        encoded_auth=$(urlencode "$auth_value")
+    fi
+    local uri="hysteria2://${encoded_auth}@${server_address}:${port}"
     local params=""
 
     if [[ -n "$sni" ]]; then
         params+="sni=${sni}"
     fi
 
-    params+="&insecure=${insecure}"
+    if [[ -n "$params" ]]; then
+        params+="&"
+    fi
+    params+="insecure=${insecure}"
 
     if [[ -n "$obfs_info" ]]; then
         local obfs_type="${obfs_info%%:*}"
         local obfs_pass="${obfs_info##*:}"
-        params+="&obfs=${obfs_type}&obfs-password=${obfs_pass}"
+        local encoded_obfs_pass
+        encoded_obfs_pass=$(urlencode "$obfs_pass")
+        params+="&obfs=${obfs_type}&obfs-password=${encoded_obfs_pass}"
     fi
 
-    uri+="${params}"
+    uri+="?${params}"
 
     echo ""
     echo -e "${GREEN}✅ Hysteria2 URI:${NC}"
@@ -280,10 +313,11 @@ generate_qr_code() {
 
     local auth_info
     auth_info=$(get_client_auth_info)
+    local auth_mode="${auth_info%%|*}"
     local auth_value="${auth_info##*|}"
 
-    local server_ip
-    server_ip=$(get_server_ip)
+    local server_address
+    server_address=$(get_server_address)
     local port
     port=$(get_listen_port)
     local sni
@@ -296,12 +330,22 @@ generate_qr_code() {
         insecure="1"
     fi
 
-    local uri="hysteria2://${auth_value}@${server_ip}:${port}?sni=${sni:-$server_ip}&insecure=${insecure}"
+    local encoded_auth
+    if [[ "$auth_mode" == "userpass" ]]; then
+        local uri_user="${auth_value%%:*}"
+        local uri_pass="${auth_value#*:}"
+        encoded_auth="$(urlencode "$uri_user"):$(urlencode "$uri_pass")"
+    else
+        encoded_auth=$(urlencode "$auth_value")
+    fi
+    local uri="hysteria2://${encoded_auth}@${server_address}:${port}?sni=${sni:-$server_address}&insecure=${insecure}"
 
     if [[ -n "$obfs_info" ]]; then
         local obfs_type="${obfs_info%%:*}"
         local obfs_pass="${obfs_info##*:}"
-        uri+="&obfs=${obfs_type}&obfs-password=${obfs_pass}"
+        local encoded_obfs_pass
+        encoded_obfs_pass=$(urlencode "$obfs_pass")
+        uri+="&obfs=${obfs_type}&obfs-password=${encoded_obfs_pass}"
     fi
 
     echo -e "${GREEN}✅ 二维码:${NC}"
@@ -316,12 +360,8 @@ generate_subscription_link() {
     echo -e "${CYAN}=== 生成订阅链接 ===${NC}"
     echo ""
 
-    local auth_info
-    auth_info=$(get_client_auth_info)
-    local auth_value="${auth_info##*|}"
-
-    local server_ip
-    server_ip=$(get_server_ip)
+    local server_address
+    server_address=$(get_server_address)
     local port
     port=$(get_listen_port)
     local sni
@@ -360,27 +400,38 @@ generate_subscription_link() {
                 fi
             done < "$HYSTERIA_CONFIG"
 
-            local uri="hysteria2://${username}:${password}@${server_ip}:${port}?sni=${sni:-$server_ip}&insecure=${insecure}"
+            local encoded_userpass
+            encoded_userpass="$(urlencode "${username}"):$(urlencode "${password}")"
+            local uri="hysteria2://${encoded_userpass}@${server_address}:${port}?sni=${sni:-$server_address}&insecure=${insecure}"
             if [[ -n "$obfs_info" ]]; then
                 local obfs_type="${obfs_info%%:*}"
                 local obfs_pass="${obfs_info##*:}"
-                uri+="&obfs=${obfs_type}&obfs-password=${obfs_pass}"
+                local encoded_obfs_pass
+                encoded_obfs_pass=$(urlencode "$obfs_pass")
+                uri+="&obfs=${obfs_type}&obfs-password=${encoded_obfs_pass}"
             fi
             uri_list+="${uri}"$'\n'
         done < <(get_all_users)
     else
-        local uri="hysteria2://${auth_value}@${server_ip}:${port}?sni=${sni:-$server_ip}&insecure=${insecure}"
+        local auth_info
+        auth_info=$(get_client_auth_info)
+        local auth_value="${auth_info##*|}"
+        local encoded_auth
+        encoded_auth=$(urlencode "$auth_value")
+        local uri="hysteria2://${encoded_auth}@${server_address}:${port}?sni=${sni:-$server_address}&insecure=${insecure}"
         if [[ -n "$obfs_info" ]]; then
             local obfs_type="${obfs_info%%:*}"
             local obfs_pass="${obfs_info##*:}"
-            uri+="&obfs=${obfs_type}&obfs-password=${obfs_pass}"
+            local encoded_obfs_pass
+            encoded_obfs_pass=$(urlencode "$obfs_pass")
+            uri+="&obfs=${obfs_type}&obfs-password=${encoded_obfs_pass}"
         fi
         uri_list="${uri}"
     fi
 
     # Base64 编码
     local encoded
-    encoded=$(echo -n "$uri_list" | base64 -w 0)
+    encoded=$(printf '%s' "$uri_list" | base64_one_line)
 
     # 保存到文件
     local sub_dir="$HYSTERIA_DIR/subscription"

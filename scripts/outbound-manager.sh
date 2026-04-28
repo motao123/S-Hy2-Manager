@@ -29,7 +29,17 @@ fi
 # 此文件保留向后兼容，加载所有子模块
 
 load_outbound_modules() {
-    local modules_dir="$SCRIPT_DIR/modules"
+    local base_dir="${PROJECT_DIR:-}"
+    if [[ -z "$base_dir" ]]; then
+        if [[ -n "${SCRIPTS_DIR:-}" ]]; then
+            base_dir="$(dirname "$SCRIPTS_DIR")"
+        elif [[ -n "${SCRIPT_DIR:-}" && -d "$SCRIPT_DIR/modules" ]]; then
+            base_dir="$SCRIPT_DIR"
+        else
+            base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+        fi
+    fi
+    local modules_dir="$base_dir/modules"
     for module in outbound-core outbound-add outbound-modify outbound-delete outbound-apply outbound-view; do
         if [[ -f "$modules_dir/$module.sh" ]]; then
             source "$modules_dir/$module.sh"

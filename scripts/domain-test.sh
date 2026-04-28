@@ -609,7 +609,7 @@ update_masquerade_domain() {
         echo -e "${BLUE}备份文件: $backup_file${NC}"
         
         # 验证配置文件语法
-        if command -v hysteria >/dev/null && hysteria server --config "$HYSTERIA_CONFIG" --check 2>/dev/null; then
+        if command -v validate_hysteria_config >/dev/null 2>&1 && validate_hysteria_config "$HYSTERIA_CONFIG"; then
             echo -e "${GREEN}配置文件语法验证通过${NC}"
         else
             echo -e "${YELLOW}警告: 无法验证配置文件语法${NC}"

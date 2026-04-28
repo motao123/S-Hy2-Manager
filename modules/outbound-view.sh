@@ -286,7 +286,7 @@ show_http_parameters() {
 }
 
 manage_outbound() {
-    init_outbound_manager
+    init_outbound_manager || return 1
 
     while true; do
         show_outbound_menu

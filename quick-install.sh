@@ -137,7 +137,7 @@ download_file() {
     local description="$3"
 
     echo "  下载 $description..."
-    if ! curl -fsSL "$url" -o "$output"; then
+    if ! curl -fsSL --proto "=https" --tlsv1.2 "$url" -o "$output"; then
         echo -e "${RED}    失败: 无法下载 $description${NC}"
         return 1
     fi

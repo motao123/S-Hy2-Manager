@@ -46,3 +46,10 @@ claudedocs/
 SECURITY_AUDIT_REPORT.md
 COMPLETE_CODE_AUDIT_REPORT.md
 AGENTS.md
+
+# 本地/远程临时测试输出
+tests/*_output.txt
+tests/out.txt
+tests/err.txt
+tests/config_output.txt
+tests/__pycache__/

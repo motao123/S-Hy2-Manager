@@ -13,7 +13,7 @@ init_outbound_manager() {
     require_command "sed"
 
     # 检查 Hysteria2 安装状态
-    check_hysteria2_installation
+    check_hysteria2_installation || return 1
 }
 
 create_basic_hysteria_config() {

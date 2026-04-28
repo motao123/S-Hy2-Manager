@@ -277,6 +277,26 @@ yaml_unquote_scalar() {
     printf '%s' "$value"
 }
 
+# URL 编码辅助函数，用于 URI 拼接时编码特殊字符
+urlencode() {
+    local string="$1"
+    local strlen=${#string}
+    local encoded=""
+    local pos c o
+
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * ) printf -v o '%%%02x' "'$c"
+               o="${o//\'/}"
+               ;;
+        esac
+        encoded+="${o}"
+    done
+    printf '%s' "$encoded"
+}
+
 # 写入一个 YAML key/value 行，value 默认使用安全双引号标量。
 yaml_write_kv() {
     local indent="${1:-}"
@@ -601,6 +621,44 @@ check_internet_connection() {
     return 1
 }
 
+# 单行 Base64 编码（兼容 GNU/BSD/BusyBox base64）
+base64_one_line() {
+    if base64 --help 2>&1 | grep -q -- '-w'; then
+        # GNU coreutils / BusyBox
+        base64 -w 0
+    elif base64 --help 2>&1 | grep -q -- '-b'; then
+        # BSD/macOS
+        base64 -b 0
+    else
+        base64 | tr -d '\n'
+    fi
+}
+
+# 统一验证 Hysteria2 配置，兼容不同版本命令参数
+validate_hysteria_config() {
+    local config_file="${1:-$HYSTERIA_CONFIG}"
+
+    if ! command -v hysteria >/dev/null 2>&1; then
+        log_warn "Hysteria2 未安装，跳过配置验证"
+        return 2
+    fi
+
+    if [[ ! -f "$config_file" ]]; then
+        log_error "配置文件不存在: $config_file"
+        return 1
+    fi
+
+    if hysteria check "$config_file" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if hysteria server --config "$config_file" --check >/dev/null 2>&1; then
+        return 0
+    fi
+
+    return 1
+}
+
 # 导出函数供其他脚本使用
 export -f init_logging
 export -f log_debug log_info log_warn log_error log_fatal log_success
@@ -610,6 +668,7 @@ export -f require_command require_file require_writable_dir require_root
 export -f wait_for_user show_progress
 export -f init_semaphore acquire_semaphore release_semaphore
 export -f check_internet_connection
+export -f base64_one_line validate_hysteria_config
 
 # ===== 用户友好提示函数 =====
 
@@ -758,6 +817,18 @@ get_server_ip() {
 get_server_domain() {
     if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
         cat "$HYSTERIA_DOMAIN_CONF"
+    fi
+}
+
+# 获取服务器地址（优先使用域名，回退到IP）
+get_server_address() {
+    local configured_domain
+    configured_domain=$(get_server_domain)
+
+    if [[ -n "$configured_domain" ]]; then
+        echo "$configured_domain"
+    else
+        get_server_ip
     fi
 }
 

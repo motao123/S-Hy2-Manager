@@ -3,30 +3,64 @@
 # Hysteria2 节点信息显示脚本
 
 # 从配置文件解析信息
+# 输出格式: port|auth_info|obfs_password|sni_domain|cert_type|insecure
+# auth_info: 单密码模式为密码值，多用户模式为 "user1:pass1,user2:pass2"
 parse_config_info() {
     local config_file="$HYSTERIA_CONFIG"
     local node_info=()
-    
+
     if [[ ! -f "$config_file" ]]; then
         echo "配置文件不存在"
         return 1
     fi
-    
+
     # 解析监听端口
     local port
     port=$(grep -E "^listen:" "$config_file" | awk '{print $2}' | sed 's/://')
     if [[ -z "$port" ]]; then
         port="443"
     fi
-    
-    # 解析认证密码
-    local auth_password
-    auth_password=$(grep -A 2 "^auth:" "$config_file" | grep "password:" | awk '{print $2}')
-    
-    # 解析混淆密码
+
+    # 解析认证信息（支持 password 和 userpass 模式，去除 YAML 引号）
+    local auth_info=""
+    local auth_mode
+    auth_mode=$(get_auth_mode 2>/dev/null || echo "unknown")
+
+    if [[ "$auth_mode" == "userpass" ]]; then
+        # 多用户模式：解析所有用户名和密码
+        local user_list=""
+        local in_userpass=false
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ "$line" =~ ^[[:space:]]*userpass:[[:space:]]*$ ]]; then
+                in_userpass=true
+                continue
+            elif [[ "$in_userpass" == true && "$line" =~ ^[[:space:]]*([a-zA-Z0-9_.-]+):[[:space:]]*(.*)$ ]]; then
+                local u="${BASH_REMATCH[1]}"
+                if [[ "$u" != "type" && "$u" != "password" ]]; then
+                    local p
+                    p=$(yaml_unquote_scalar "${BASH_REMATCH[2]}")
+                    if [[ -n "$user_list" ]]; then
+                        user_list+=","
+                    fi
+                    user_list+="${u}:${p}"
+                fi
+            elif [[ "$in_userpass" == true && "$line" =~ ^[a-zA-Z] ]]; then
+                break
+            fi
+        done < "$config_file"
+        auth_info="$user_list"
+    else
+        # 单密码模式
+        local password
+        password=$(grep -A1 "type: password" "$config_file" 2>/dev/null | grep "password:" | awk '{print $2}')
+        auth_info=$(yaml_unquote_scalar "$password")
+    fi
+
+    # 解析混淆密码（去除 YAML 引号）
     local obfs_password=""
     if grep -q "^obfs:" "$config_file"; then
         obfs_password=$(grep -A 3 "^obfs:" "$config_file" | grep "password:" | awk '{print $2}')
+        obfs_password=$(yaml_unquote_scalar "$obfs_password")
     fi
     
     # 解析伪装域名
@@ -45,7 +79,7 @@ parse_config_info() {
         insecure="true"
     fi
     
-    echo "$port|$auth_password|$obfs_password|$sni_domain|$cert_type|$insecure"
+    echo "$port|$auth_info|$obfs_password|$sni_domain|$cert_type|$insecure"
 }
 
 # get_server_domain 已移至 common.sh
@@ -66,18 +100,6 @@ get_current_server_ip() {
         # 如果无法获取公网IP，尝试获取本地IP
         ip=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+')
         echo "${ip:-127.0.0.1}"
-    fi
-}
-
-# 获取服务器地址（优先使用域名）
-get_server_address() {
-    local configured_domain
-    configured_domain=$(get_server_domain)
-
-    if [[ -n "$configured_domain" ]]; then
-        echo "$configured_domain"
-    else
-        get_current_server_ip
     fi
 }
 
@@ -112,7 +134,7 @@ get_port_hopping_info() {
     fi
 }
 
-# 生成节点链接
+# 生成节点链接（单密码模式）
 generate_node_link() {
     local server_ip="$1"
     local port="$2"
@@ -121,7 +143,10 @@ generate_node_link() {
     local sni_domain="$5"
     local insecure="$6"
     
-    local link="hysteria2://$auth_password@$server_ip:$port"
+    # URL 编码 auth 部分
+    local encoded_auth
+    encoded_auth=$(urlencode "$auth_password")
+    local link="hysteria2://$encoded_auth@$server_ip:$port"
     local params=""
     
     if [[ -n "$sni_domain" ]]; then
@@ -133,7 +158,9 @@ generate_node_link() {
     fi
     
     if [[ -n "$obfs_password" ]]; then
-        params="${params}&obfs=salamander&obfs-password=$obfs_password"
+        local encoded_obfs_pass
+        encoded_obfs_pass=$(urlencode "$obfs_password")
+        params="${params}&obfs=salamander&obfs-password=$encoded_obfs_pass"
     fi
     
     # 移除开头的&
@@ -144,7 +171,50 @@ generate_node_link() {
     fi
     
     link="${link}#Hysteria2-Server"
-    
+
+    echo "$link"
+}
+
+# 生成节点链接（多用户模式：username:password 格式）
+generate_node_link_userpass() {
+    local server_ip="$1"
+    local port="$2"
+    local username="$3"
+    local password="$4"
+    local obfs_password="$5"
+    local sni_domain="$6"
+    local insecure="$7"
+
+    # URL 编码 username 和 password
+    local encoded_user encoded_pass
+    encoded_user=$(urlencode "$username")
+    encoded_pass=$(urlencode "$password")
+    local link="hysteria2://${encoded_user}:${encoded_pass}@$server_ip:$port"
+    local params=""
+
+    if [[ -n "$sni_domain" ]]; then
+        params="${params}&sni=$sni_domain"
+    fi
+
+    if [[ "$insecure" == "true" ]]; then
+        params="${params}&insecure=1"
+    fi
+
+    if [[ -n "$obfs_password" ]]; then
+        local encoded_obfs_pass
+        encoded_obfs_pass=$(urlencode "$obfs_password")
+        params="${params}&obfs=salamander&obfs-password=$encoded_obfs_pass"
+    fi
+
+    # 移除开头的&
+    params="${params#&}"
+
+    if [[ -n "$params" ]]; then
+        link="${link}?${params}"
+    fi
+
+    link="${link}#${username}"
+
     echo "$link"
 }
 
@@ -485,11 +555,15 @@ display_node_info() {
     fi
 
     # 解析配置信息
-    IFS='|' read -r port auth_password obfs_password sni_domain cert_type insecure <<< "$config_info"
+    IFS='|' read -r port auth_info obfs_password sni_domain cert_type insecure <<< "$config_info"
 
     # 获取端口跳跃信息
     local port_hopping
     port_hopping=$(get_port_hopping_info)
+
+    # 判断认证模式
+    local auth_mode
+    auth_mode=$(get_auth_mode 2>/dev/null || echo "unknown")
 
     # 显示基本信息
     echo -e "${CYAN}=== 服务器信息 ===${NC}"
@@ -499,7 +573,21 @@ display_node_info() {
     else
         echo -e "${YELLOW}服务器地址:${NC} $server_ip:$port"
     fi
-    echo -e "${YELLOW}认证密码:${NC} $auth_password"
+    if [[ "$auth_mode" == "userpass" ]]; then
+        echo -e "${YELLOW}认证模式:${NC} 多用户"
+        # auth_info 格式: "user1:pass1,user2:pass2"
+        local IFS_OLD="$IFS"
+        IFS=','
+        local user_entries=($auth_info)
+        IFS="$IFS_OLD"
+        for entry in "${user_entries[@]}"; do
+            local u="${entry%%:*}"
+            local p="${entry#*:}"
+            echo -e "${YELLOW}  用户 ${u}:${NC} $p"
+        done
+    else
+        echo -e "${YELLOW}认证密码:${NC} $auth_info"
+    fi
     if [[ -n "$obfs_password" ]]; then
         echo -e "${YELLOW}混淆密码:${NC} $obfs_password"
         echo -e "${YELLOW}混淆类型:${NC} Salamander"
@@ -512,8 +600,26 @@ display_node_info() {
     echo ""
 
     # 生成链接（使用服务器地址）
-    local node_link
-    node_link=$(generate_node_link "$server_address" "$port" "$auth_password" "$obfs_password" "$sni_domain" "$insecure")
+    # 多用户模式下为每个用户生成链接
+    local node_link=""
+    if [[ "$auth_mode" == "userpass" ]]; then
+        local IFS_OLD="$IFS"
+        IFS=','
+        local user_entries=($auth_info)
+        IFS="$IFS_OLD"
+        for entry in "${user_entries[@]}"; do
+            local u="${entry%%:*}"
+            local p="${entry#*:}"
+            local link
+            link=$(generate_node_link_userpass "$server_address" "$port" "$u" "$p" "$obfs_password" "$sni_domain" "$insecure")
+            if [[ -n "$node_link" ]]; then
+                node_link+=$'\n'
+            fi
+            node_link+="$link"
+        done
+    else
+        node_link=$(generate_node_link "$server_address" "$port" "$auth_info" "$obfs_password" "$sni_domain" "$insecure")
+    fi
     
     while true; do
         echo -e "${CYAN}=== 节点信息选项 ===${NC}"
@@ -530,10 +636,30 @@ display_node_info() {
                 show_node_links "$node_link"
                 ;;
             2)
-                show_subscription_info "$node_link" "$server_address" "$port" "$auth_password" "$obfs_password" "$sni_domain" "$insecure"
+                # 多用户模式下，订阅信息使用所有用户（node_link 已包含所有用户链接）
+                show_subscription_info "$node_link" "$server_address" "$port" "$auth_info" "$obfs_password" "$sni_domain" "$insecure"
                 ;;
             3)
-                show_client_configs "$server_address" "$port" "$auth_password" "$obfs_password" "$sni_domain" "$insecure"
+                # 多用户模式下需要选择用户
+                local selected_auth="$auth_info"
+                if [[ "$auth_mode" == "userpass" ]]; then
+                    echo -e "${YELLOW}请选择要导出配置的用户:${NC}"
+                    local IFS_OLD="$IFS"
+                    IFS=','
+                    local user_entries=($auth_info)
+                    IFS="$IFS_OLD"
+                    local j=1
+                    for entry in "${user_entries[@]}"; do
+                        local u="${entry%%:*}"
+                        echo -e "  ${GREEN}$j.${NC} $u"
+                        ((j++))
+                    done
+                    echo -n "请选择 [1-$((j-1))]: "
+                    local user_choice
+                    read -r user_choice
+                    selected_auth="${user_entries[$((user_choice-1))]}"
+                fi
+                show_client_configs "$server_address" "$port" "$selected_auth" "$obfs_password" "$sni_domain" "$insecure"
                 ;;
             0)
                 break
@@ -612,7 +738,7 @@ generate_subscription_files() {
     
     # 2. Base64编码订阅 (通用格式，兼容v2rayNG等客户端)
     # 直接对节点链接进行base64编码，不添加注释避免解析问题
-    echo "$node_link" | base64 -w 0 > "$base64_sub"
+    printf '%s' "$node_link" | base64_one_line > "$base64_sub"
     
     # 获取端口跳跃信息
     local port_hopping
@@ -1425,7 +1551,7 @@ SNI域名: ${sni_domain:-未设置}
 $node_link
 
 === Hysteria2 通用订阅链接 ===
-$(echo "$node_link" | base64 -w 0)
+$(printf '%s' "$node_link" | base64_one_line)
 
 === Hysteria2 官方客户端配置 ===
 $(generate_client_config "$server_address" "$port" "$auth_password" "$obfs_password" "$sni_domain" "$insecure")
