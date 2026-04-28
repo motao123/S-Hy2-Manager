@@ -327,7 +327,9 @@ yaml_set_masquerade_url() {
     /^masquerade:[[:space:]]*$/ {
         print "masquerade:"
         print "  type: proxy"
-        print "  url: " url
+        print "  proxy:"
+        print "    url: " url
+        print "    rewriteHost: true"
         in_block = 1
         found = 1
         next
@@ -345,7 +347,9 @@ yaml_set_masquerade_url() {
             print ""
             print "masquerade:"
             print "  type: proxy"
-            print "  url: " url
+            print "  proxy:"
+            print "    url: " url
+            print "    rewriteHost: true"
         }
     }
     ' "$config_file" > "$temp_file"

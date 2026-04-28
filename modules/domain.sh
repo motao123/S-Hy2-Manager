@@ -38,7 +38,7 @@ domain_management() {
         # 检查伪装域名
         local masquerade_domain=""
         if [[ -f "$HYSTERIA_CONFIG" ]]; then
-            masquerade_domain=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | awk '{print $2}' | sed 's|https\?://||' | sed 's|/.*||')
+            masquerade_domain=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'" | sed 's|https\?://||' | sed 's|/.*||')
         fi
         
         if [[ -n "$masquerade_domain" ]]; then
@@ -132,7 +132,7 @@ masquerade_domain_management() {
         # 显示当前伪装域名配置
         local current_masquerade=""
         if [[ -f "$HYSTERIA_CONFIG" ]]; then
-            current_masquerade=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | awk '{print $2}')
+            current_masquerade=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
         fi
         
         if [[ -n "$current_masquerade" ]]; then
@@ -191,7 +191,7 @@ test_domain_connectivity() {
     # 测试伪装域名
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
         local masquerade_url
-        masquerade_url=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | awk '{print $2}' | tr -d '"' | tr -d "'")
+        masquerade_url=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
         if [[ -n "$masquerade_url" ]]; then
             echo ""
             echo -e "${YELLOW}测试伪装域名连通性: $masquerade_url${NC}"
@@ -273,7 +273,7 @@ remove_masquerade_domain() {
     fi
 
     local current_masquerade
-    current_masquerade=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" | grep "url:" | awk '{print $2}')
+    current_masquerade=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
     echo "当前伪装域名: $current_masquerade"
     echo ""
     echo -n -e "${RED}确定要删除伪装域名配置吗? [y/N]: ${NC}"

@@ -31,7 +31,7 @@ parse_config_info() {
     
     # 解析伪装域名
     local masquerade_url
-    masquerade_url=$(grep -A 3 "masquerade:" "$config_file" | grep "url:" | awk '{print $2}')
+    masquerade_url=$(grep -A 10 "masquerade:" "$config_file" | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
     local sni_domain=""
     if [[ -n "$masquerade_url" ]]; then
         sni_domain=$(echo "$masquerade_url" | sed 's|https\?://||' | sed 's|/.*||')
