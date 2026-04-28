@@ -94,10 +94,10 @@ update_auth_password_line() {
         else
             echo "$line" >> "$temp_file"
         fi
-    done < "$CONFIG_PATH"
+    done < "$HYSTERIA_CONFIG"
 
     if [[ "$updated" == true ]]; then
-        replace_config_file_securely "$temp_file" "$CONFIG_PATH"
+        replace_config_file_securely "$temp_file" "$HYSTERIA_CONFIG"
     else
         rm -f "$temp_file"
         return 1
@@ -117,10 +117,10 @@ update_listen_port_line() {
         else
             echo "$line" >> "$temp_file"
         fi
-    done < "$CONFIG_PATH"
+    done < "$HYSTERIA_CONFIG"
 
     if [[ "$updated" == true ]]; then
-        replace_config_file_securely "$temp_file" "$CONFIG_PATH"
+        replace_config_file_securely "$temp_file" "$HYSTERIA_CONFIG"
     else
         rm -f "$temp_file"
         return 1
@@ -156,7 +156,7 @@ write_obfs_config() {
             yaml_write_kv "  " "password" "$obfs_password" >> "$temp_file"
             inserted=true
         fi
-    done < "$CONFIG_PATH"
+    done < "$HYSTERIA_CONFIG"
 
     if [[ "$action" == "enable" && "$inserted" == false ]]; then
         printf '\nobfs:\n' >> "$temp_file"
@@ -164,7 +164,7 @@ write_obfs_config() {
         yaml_write_kv "  " "password" "$obfs_password" >> "$temp_file"
     fi
 
-    replace_config_file_securely "$temp_file" "$CONFIG_PATH"
+    replace_config_file_securely "$temp_file" "$HYSTERIA_CONFIG"
 }
 
 config_management() {
@@ -173,7 +173,7 @@ config_management() {
         echo -e "${CYAN}=== 配置管理 ===${NC}"
         echo ""
         
-        if [[ ! -f "$CONFIG_PATH" ]]; then
+        if [[ ! -f "$HYSTERIA_CONFIG" ]]; then
             echo -e "${YELLOW}未找到配置文件${NC}"
             echo ""
             echo -e "${GREEN}1.${NC} 返回主菜单"
@@ -214,7 +214,7 @@ view_current_config() {
     echo ""
     echo -e "${BLUE}当前配置文件内容:${NC}"
     echo -e "${CYAN}================================${NC}"
-    cat "$CONFIG_PATH"
+    cat "$HYSTERIA_CONFIG"
     echo -e "${CYAN}================================${NC}"
     wait_for_user
 }
@@ -225,7 +225,7 @@ modify_auth_password() {
     
     # 获取当前密码
     local current_password
-    current_password=$(grep -E "^\s*password:" "$CONFIG_PATH" | awk '{print $2}' | tr -d '"' || echo "未设置")
+    current_password=$(grep -E "^\s*password:" "$HYSTERIA_CONFIG" | awk '{print $2}' | tr -d '"' || echo "未设置")
     echo "当前密码: $current_password"
     echo ""
     
@@ -239,7 +239,7 @@ modify_auth_password() {
     fi
     
     # 备份配置文件
-    backup_config_securely "$CONFIG_PATH" "$CONFIG_PATH.bak" || {
+    backup_config_securely "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.bak" || {
         log_error "配置文件备份失败"
         wait_for_user
         return
@@ -270,7 +270,7 @@ modify_port_settings() {
     
     # 获取当前端口
     local current_port
-    current_port=$(grep -E "^\s*listen:" "$CONFIG_PATH" | awk -F':' '{print $3}' | tr -d ' ' || echo "443")
+    current_port=$(grep -E "^\s*listen:" "$HYSTERIA_CONFIG" | awk -F':' '{print $3}' | tr -d ' ' || echo "443")
     echo "当前端口: $current_port"
     echo ""
     
@@ -294,7 +294,7 @@ modify_port_settings() {
     fi
     
     # 备份配置文件
-    backup_config_securely "$CONFIG_PATH" "$CONFIG_PATH.bak" || {
+    backup_config_securely "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.bak" || {
         log_error "配置文件备份失败"
         wait_for_user
         return
@@ -356,12 +356,12 @@ modify_obfs_settings() {
     
     # 检查当前混淆配置
     local current_obfs
-    current_obfs=$(grep -E "^\s*type: salamander" "$CONFIG_PATH" && echo "启用" || echo "禁用")
+    current_obfs=$(grep -E "^\s*type: salamander" "$HYSTERIA_CONFIG" && echo "启用" || echo "禁用")
     echo "当前混淆状态: $current_obfs"
     
     if [[ "$current_obfs" == "启用" ]]; then
         local current_obfs_password
-        current_obfs_password=$(grep -A1 "type: salamander" "$CONFIG_PATH" | grep "password:" | awk '{print $2}' | tr -d '"')
+        current_obfs_password=$(grep -A1 "type: salamander" "$HYSTERIA_CONFIG" | grep "password:" | awk '{print $2}' | tr -d '"')
         echo "当前混淆密码: $current_obfs_password"
     fi
     
@@ -378,7 +378,7 @@ modify_obfs_settings() {
     case $obfs_choice in
         1|2|3)
             # 备份配置文件
-            backup_config_securely "$CONFIG_PATH" "$CONFIG_PATH.bak" || {
+            backup_config_securely "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.bak" || {
                 log_error "配置文件备份失败"
                 wait_for_user
                 return
@@ -463,7 +463,7 @@ modify_obfs_settings() {
 edit_config_file() {
     echo ""
     echo -e "${BLUE}打开配置文件编辑${NC}"
-    echo "配置文件路径: $CONFIG_PATH"
+    echo "配置文件路径: $HYSTERIA_CONFIG"
     echo ""
     echo -e "${YELLOW}编辑器选项:${NC}"
     echo "1. 使用 nano (推荐新手)"
@@ -475,7 +475,7 @@ edit_config_file() {
     read -r editor_choice
     
     # 备份配置文件
-    backup_config_securely "$CONFIG_PATH" "$CONFIG_PATH.bak" || {
+    backup_config_securely "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.bak" || {
         log_error "配置文件备份失败"
         wait_for_user
         return
@@ -485,29 +485,29 @@ edit_config_file() {
     case $editor_choice in
         1)
             if command -v nano &> /dev/null; then
-                run_safe_editor "$CONFIG_PATH" "nano"
+                run_safe_editor "$HYSTERIA_CONFIG" "nano"
             else
                 log_error "nano 未安装，使用安全默认编辑器"
-                run_safe_editor "$CONFIG_PATH" "vi"
+                run_safe_editor "$HYSTERIA_CONFIG" "vi"
             fi
             ;;
         2)
             if command -v vim &> /dev/null; then
-                run_safe_editor "$CONFIG_PATH" "vim"
+                run_safe_editor "$HYSTERIA_CONFIG" "vim"
             else
                 log_error "vim 未安装，使用安全默认编辑器"
-                run_safe_editor "$CONFIG_PATH" "vi"
+                run_safe_editor "$HYSTERIA_CONFIG" "vi"
             fi
             ;;
         3)
-            run_safe_editor "$CONFIG_PATH" "${EDITOR:-vi}"
+            run_safe_editor "$HYSTERIA_CONFIG" "${EDITOR:-vi}"
             ;;
         0)
             return
             ;;
         *)
             log_error "无效选择，使用安全默认编辑器"
-            run_safe_editor "$CONFIG_PATH" "vi"
+            run_safe_editor "$HYSTERIA_CONFIG" "vi"
             ;;
     esac
     
@@ -522,8 +522,8 @@ edit_config_file() {
             echo -n -e "${YELLOW}是否恢复备份配置? [Y/n]: ${NC}"
             read -r restore
             if [[ ! $restore =~ ^[Nn]$ ]]; then
-                cp "$CONFIG_PATH.bak" "$CONFIG_PATH"
-                chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+                cp "$HYSTERIA_CONFIG.bak" "$HYSTERIA_CONFIG"
+                chmod 600 "$HYSTERIA_CONFIG" 2>/dev/null || true
                 systemctl restart "$SERVICE_NAME"
                 log_info "已恢复备份配置"
             fi

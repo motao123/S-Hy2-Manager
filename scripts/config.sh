@@ -105,9 +105,9 @@ validate_email() {
 
 # 获取当前配置文件中的监听端口
 get_current_listen_port() {
-    if [[ -f "$CONFIG_PATH" ]]; then
+    if [[ -f "$HYSTERIA_CONFIG" ]]; then
         local port
-        port=$(grep -E "^\s*listen:" "$CONFIG_PATH" | awk -F':' '{print $3}' | tr -d ' ' | head -1)
+        port=$(grep -E "^\s*listen:" "$HYSTERIA_CONFIG" | awk -F':' '{print $3}' | tr -d ' ' | head -1)
         echo "${port:-443}"
     else
         echo "443"
@@ -236,7 +236,7 @@ obfs:
     esac
     
     # 生成配置文件
-    cat > "$CONFIG_PATH" << EOF
+    cat > "$HYSTERIA_CONFIG" << EOF
 # Hysteria2 配置文件 - ACME 模式
 # 生成时间: $(date)
 
@@ -375,7 +375,7 @@ obfs:
     fi
     
     # 生成配置文件
-    cat > "$CONFIG_PATH" << EOF
+    cat > "$HYSTERIA_CONFIG" << EOF
 # Hysteria2 配置文件 - 自签名证书模式
 # 生成时间: $(date)
 
@@ -797,7 +797,7 @@ quick_setup_hysteria() {
     fi
 
     # 检查现有配置
-    if [[ -f "$CONFIG_PATH" ]]; then
+    if [[ -f "$HYSTERIA_CONFIG" ]]; then
         echo -e "${YELLOW}检测到现有配置文件${NC}"
         echo -n -e "${BLUE}是否覆盖现有配置? [y/N]: ${NC}"
         read -r overwrite
@@ -807,8 +807,8 @@ quick_setup_hysteria() {
         fi
 
         # 备份现有配置
-        cp "$CONFIG_PATH" "$CONFIG_PATH.backup.$(date +%Y%m%d_%H%M%S)"
-        chmod 600 "$CONFIG_PATH.backup."* 2>/dev/null || true
+        cp "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+        chmod 600 "$HYSTERIA_CONFIG.backup."* 2>/dev/null || true
         echo -e "${GREEN}已备份现有配置${NC}"
     fi
 
@@ -866,7 +866,7 @@ quick_setup_hysteria() {
 
     # 5. 生成配置文件
     echo -e "${BLUE}步骤 5/7: 生成配置文件...${NC}"
-    cat > "$CONFIG_PATH" << EOF
+    cat > "$HYSTERIA_CONFIG" << EOF
 # Hysteria2 配置文件 - 一键快速配置
 # 生成时间: $(date)
 # 服务器IP: $server_ip
@@ -895,9 +895,9 @@ EOF
 
     # 设置配置文件权限
     if id "hysteria" &>/dev/null; then
-        chown hysteria:hysteria "$CONFIG_PATH"
+        chown hysteria:hysteria "$HYSTERIA_CONFIG"
     fi
-    chmod 600 "$CONFIG_PATH"
+    chmod 600 "$HYSTERIA_CONFIG"
     echo "配置文件生成完成"
 
     # 6. 配置端口跳跃
@@ -1021,7 +1021,7 @@ generate_hysteria_config() {
     fi
     
     # 检查现有配置
-    if [[ -f "$CONFIG_PATH" ]]; then
+    if [[ -f "$HYSTERIA_CONFIG" ]]; then
         echo -e "${YELLOW}检测到现有配置文件${NC}"
         echo -n -e "${BLUE}是否覆盖现有配置? [y/N]: ${NC}"
         read -r overwrite
@@ -1031,8 +1031,8 @@ generate_hysteria_config() {
         fi
         
         # 备份现有配置
-        cp "$CONFIG_PATH" "$CONFIG_PATH.backup.$(date +%Y%m%d_%H%M%S)"
-        chmod 600 "$CONFIG_PATH.backup."* 2>/dev/null || true
+        cp "$HYSTERIA_CONFIG" "$HYSTERIA_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+        chmod 600 "$HYSTERIA_CONFIG.backup."* 2>/dev/null || true
         echo -e "${GREEN}已备份现有配置${NC}"
     fi
     
@@ -1060,12 +1060,12 @@ generate_hysteria_config() {
     
     # 设置配置文件权限
     if id "hysteria" &>/dev/null; then
-        chown hysteria:hysteria "$CONFIG_PATH"
+        chown hysteria:hysteria "$HYSTERIA_CONFIG"
     fi
-    chmod 600 "$CONFIG_PATH"
+    chmod 600 "$HYSTERIA_CONFIG"
     
     echo ""
-    echo -e "${GREEN}配置文件已保存到: $CONFIG_PATH${NC}"
+    echo -e "${GREEN}配置文件已保存到: $HYSTERIA_CONFIG${NC}"
 
     # 检查端口跳跃状态并询问
     ask_port_hopping_config

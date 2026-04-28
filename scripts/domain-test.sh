@@ -545,7 +545,7 @@ interactive_domain_selection() {
         local selected_domain="${domains_array[$((choice-1))]}"
         echo -e "${GREEN}已选择: $selected_domain${NC}"
         
-        if [[ -f "$CONFIG_PATH" ]]; then
+        if [[ -f "$HYSTERIA_CONFIG" ]]; then
             echo -n -e "${BLUE}是否更新当前配置文件中的伪装域名? [y/N]: ${NC}"
             read -r update_config
             if [[ $update_config =~ ^[Yy]$ ]]; then
@@ -564,7 +564,7 @@ update_masquerade_domain() {
     local new_domain=$1
     local new_url="https://$new_domain/"
     
-    if [[ ! -f "$CONFIG_PATH" ]]; then
+    if [[ ! -f "$HYSTERIA_CONFIG" ]]; then
         echo -e "${RED}配置文件不存在${NC}"
         return 1
     fi
@@ -576,18 +576,18 @@ update_masquerade_domain() {
     fi
     
     # 备份配置文件（带校验和）
-    local backup_file="$CONFIG_PATH.backup.$(date +%Y%m%d_%H%M%S)"
-    cp "$CONFIG_PATH" "$backup_file"
-    sha256sum "$CONFIG_PATH" > "${backup_file}.checksum" 2>/dev/null
+    local backup_file="$HYSTERIA_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+    cp "$HYSTERIA_CONFIG" "$backup_file"
+    sha256sum "$HYSTERIA_CONFIG" > "${backup_file}.checksum" 2>/dev/null
     
     # 更新伪装 URL
-    if yaml_set_masquerade_url "$CONFIG_PATH" "$new_url"; then
+    if yaml_set_masquerade_url "$HYSTERIA_CONFIG" "$new_url"; then
         echo -e "${GREEN}配置文件已更新${NC}"
         echo -e "${YELLOW}新的伪装域名: $new_url${NC}"
         echo -e "${BLUE}备份文件: $backup_file${NC}"
         
         # 验证配置文件语法
-        if command -v hysteria >/dev/null && hysteria server --config "$CONFIG_PATH" --check 2>/dev/null; then
+        if command -v hysteria >/dev/null && hysteria server --config "$HYSTERIA_CONFIG" --check 2>/dev/null; then
             echo -e "${GREEN}配置文件语法验证通过${NC}"
         else
             echo -e "${YELLOW}警告: 无法验证配置文件语法${NC}"
@@ -602,7 +602,7 @@ update_masquerade_domain() {
                     echo -e "${GREEN}服务已重启${NC}"
                 else
                     echo -e "${RED}服务重启失败，正在恢复配置...${NC}"
-                    cp "$backup_file" "$CONFIG_PATH"
+                    cp "$backup_file" "$HYSTERIA_CONFIG"
                 fi
             fi
         fi

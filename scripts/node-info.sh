@@ -4,7 +4,7 @@
 
 # 从配置文件解析信息
 parse_config_info() {
-    local config_file="$CONFIG_PATH"
+    local config_file="$HYSTERIA_CONFIG"
     local node_info=()
     
     if [[ ! -f "$config_file" ]]; then
@@ -464,7 +464,7 @@ display_node_info() {
     fi
     
     # 检查配置文件
-    if [[ ! -f "$CONFIG_PATH" ]]; then
+    if [[ ! -f "$HYSTERIA_CONFIG" ]]; then
         echo -e "${RED}错误: 配置文件不存在${NC}"
         return
     fi
