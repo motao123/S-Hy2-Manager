@@ -93,6 +93,9 @@ add_direct_outbound() {
     read -r -p "出站名称 (例: china_direct): " name
     if [[ -z "$name" ]]; then
         name="direct_out"
+    elif [[ ! "$name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo -e "${RED}名称只能包含字母、数字和下划线，使用默认名称${NC}"
+        name="direct_out"
     fi
 
     # 是否绑定特定网卡
@@ -139,6 +142,9 @@ add_http_outbound() {
 
     read -r -p "出站名称 (例: http_proxy): " name
     if [[ -z "$name" ]]; then
+        name="http_out"
+    elif [[ ! "$name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo -e "${RED}名称只能包含字母、数字和下划线，使用默认名称${NC}"
         name="http_out"
     fi
 
@@ -188,7 +194,7 @@ add_outbound_rule_new() {
             continue
         fi
 
-        if [[ ! "$rule_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+        if [[ ! "$rule_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
             echo -e "${RED}规则名称只能包含字母、数字和下划线${NC}"
             continue
         fi
@@ -196,7 +202,7 @@ add_outbound_rule_new() {
         # 检查是否已存在（检查2级缩进的规则名，避免规则名进入 grep 正则）
         local existing_rule_line existing_rule_name rule_exists=false
         while IFS= read -r existing_rule_line || [[ -n "$existing_rule_line" ]]; do
-            if [[ "$existing_rule_line" =~ ^[[:space:]]{2}([a-zA-Z_][a-zA-Z0-9_]*):[[:space:]]*$ ]]; then
+            if [[ "$existing_rule_line" =~ ^[[:space:]]{2}([a-zA-Z0-9_]+):[[:space:]]*$ ]]; then
                 existing_rule_name="${BASH_REMATCH[1]}"
                 if [[ "$existing_rule_name" == "$rule_name" ]]; then
                     rule_exists=true
@@ -799,6 +805,9 @@ add_socks5_outbound() {
 
     read -r -p "出站名称 (例: socks5_proxy): " name
     if [[ -z "$name" ]]; then
+        name="socks5_out"
+    elif [[ ! "$name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo -e "${RED}名称只能包含字母、数字和下划线，使用默认名称${NC}"
         name="socks5_out"
     fi
 

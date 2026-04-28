@@ -249,6 +249,11 @@ modify_rule_name() {
         return
     fi
 
+    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        log_error "规则名称只能包含字母、数字和下划线"
+        return
+    fi
+
     # 检查新名称是否已存在
     local existing_name
     while IFS= read -r existing_name; do
@@ -368,6 +373,11 @@ modify_username() {
     fi
 
     read -r -p "请输入新的用户名 (留空则删除): " new_username
+
+    if [[ -n "$new_username" && ! "$new_username" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "用户名只能包含字母、数字、下划线和连字符"
+        return
+    fi
 
     # 修改用户名
     modify_config_field "$rule_name" "username" "$new_username"

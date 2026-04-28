@@ -591,8 +591,8 @@ update_masquerade_domain() {
         return 1
     fi
     
-    # 验证域名格式
-    if [[ ! "$new_domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$ ]]; then
+    # 验证域名格式（使用 common.sh 的统一验证函数）
+    if ! validate_domain "$new_domain"; then
         echo -e "${RED}域名格式无效${NC}"
         return 1
     fi

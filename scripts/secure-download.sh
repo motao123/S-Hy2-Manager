@@ -56,8 +56,8 @@ validate_url_secure() {
         return 1
     fi
 
-    # 检查URL格式
-    if [[ ! "$url" =~ ^https://[a-zA-Z0-9.-]+(/.*)?$ ]]; then
+    # 检查URL格式（支持端口号）
+    if [[ ! "$url" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]; then
         echo "URL格式不正确" >&2
         return 1
     fi

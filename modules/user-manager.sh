@@ -317,6 +317,11 @@ batch_add_users() {
     read -r prefix
     prefix="${prefix:-user}"
 
+    if [[ ! "$prefix" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "前缀只能包含字母、数字、下划线和连字符"
+        return
+    fi
+
     echo ""
     log_info "将添加 $count 个用户，前缀: $prefix"
     echo -n "确认？[y/N]: "
