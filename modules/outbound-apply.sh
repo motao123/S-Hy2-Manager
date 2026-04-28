@@ -66,6 +66,7 @@ apply_outbound_config() {
     fi
 }
 
+apply_outbound_simple() {
     local name="$1" type="$2" existing_rule="${3:-}"
 
     echo -e "${BLUE}[INFO]${NC} 检查配置文件: $HYSTERIA_CONFIG"

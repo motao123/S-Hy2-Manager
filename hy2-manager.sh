@@ -511,9 +511,6 @@ init_script() {
     # 设置严格模式（但允许某些命令失败）
     set -o pipefail
 
-    # 检查依赖
-    check_dependencies
-
     # 检查脚本目录权限
     if [[ ! -r "$SCRIPT_DIR" ]]; then
         error_exit "无法访问脚本目录: $SCRIPT_DIR"
