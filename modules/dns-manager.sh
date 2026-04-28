@@ -154,7 +154,16 @@ set_recommended_dns() {
 
 # ========== 从标准输入设置 DNS（内部使用）==========
 set_dns_config_from_stdin() {
-    # 简化版 - 直接设置
+    # 从 stdin 读取两行：dns1 和 dns2
+    local dns1 dns2
+    read -r dns1
+    read -r dns2
+
+    if [[ -z "$dns1" ]]; then
+        log_error "DNS 地址不能为空"
+        return 1
+    fi
+
     cp "$HYSTERIA_CONFIG" "${HYSTERIA_CONFIG}.backup.$(date +%Y%m%d_%H%M%S)"
     chmod 600 "${HYSTERIA_CONFIG}.backup."* 2>/dev/null || true
 
@@ -176,6 +185,16 @@ set_dns_config_from_stdin() {
         echo "$line" >> "$temp_file"
     done < "$HYSTERIA_CONFIG"
 
+    # 添加新的 DNS 配置
+    printf '\ndns:\n' >> "$temp_file"
+    printf '  servers:\n' >> "$temp_file"
+    printf '    - addr: %s\n' "$(yaml_quote_scalar "$dns1")" >> "$temp_file"
+    printf '      timeout: 5s\n' >> "$temp_file"
+    if [[ -n "$dns2" ]]; then
+        printf '    - addr: %s\n' "$(yaml_quote_scalar "$dns2")" >> "$temp_file"
+        printf '      timeout: 5s\n' >> "$temp_file"
+    fi
+
     replace_config_file_securely "$temp_file" "$HYSTERIA_CONFIG"
     log_success "DNS 配置已设置"
     ask_restart_service
@@ -183,7 +202,7 @@ set_dns_config_from_stdin() {
 
 # ========== 移除 DNS 配置 ==========
 remove_dns_config() {
-    echo -e "${Cyan}=== 移除 DNS 配置 ===${NC}"
+    echo -e "${CYAN}=== 移除 DNS 配置 ===${NC}"
 
     if ! grep -q "^dns:" "$HYSTERIA_CONFIG" 2>/dev/null; then
         echo -e "${YELLOW}当前未配置自定义 DNS${NC}"
