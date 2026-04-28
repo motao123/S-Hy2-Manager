@@ -269,8 +269,9 @@ uninstall_everything() {
     safe_remove_dir "/opt/s-hy2" 2>/dev/null
     
     # 删除桌面快捷方式
-    if [[ -n "$SUDO_USER" ]]; then
-        rm -f "/home/$SUDO_USER/Desktop/S-Hy2-Manager.desktop" 2>/dev/null
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        local _sudo_user="${SUDO_USER:-}"
+        rm -f "/home/${_sudo_user}/Desktop/S-Hy2-Manager.desktop" 2>/dev/null
     fi
     
     echo ""
