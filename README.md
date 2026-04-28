@@ -242,14 +242,14 @@ bats tests/security-regression.bats
 如果这个项目对你有帮助，可以请作者喝杯咖啡
 
 <div align="center">
-<img src="zanzhu.jpg" alt="赞助" width="200">
+<img src="https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/zanzhu.jpg" alt="赞助" width="200">
 </div>
 
 ## 赞助商
 
 <div align="center">
 <a href="https://www.88sup.com" target="_blank">
-  <img src="cloud.png" alt="棉花云" width="300" />
+  <img src="https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/cloud.png" alt="棉花云" width="300" />
 </a>
 <p><strong>棉花云</strong> — 高性能云服务器</p>
 <p>
