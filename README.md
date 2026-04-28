@@ -29,7 +29,7 @@ Hysteria2 代理服务器一键部署与管理工具
 ```bash
 curl -fsSL --proto '=https' --tlsv1.2 \
   -o quick-install.sh \
-  https://raw.githubusercontent.com/sindricn/s-hy2/main/quick-install.sh
+  https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh
 bash -n quick-install.sh
 sudo bash quick-install.sh
 sudo s-hy2
@@ -38,7 +38,7 @@ sudo s-hy2
 ### 手动安装
 
 ```bash
-git clone https://github.com/sindricn/s-hy2.git
+git clone https://github.com/motao123/S-Hy2-Manager.git
 cd s-hy2
 chmod +x hy2-manager.sh scripts/*.sh modules/*.sh
 sudo ./hy2-manager.sh
@@ -242,7 +242,7 @@ bats tests/security-regression.bats
 如果这个项目对你有帮助，可以请作者喝杯咖啡
 
 <div align="center">
-<img src="zanzhu.png" alt="赞助" width="200">
+<img src="zanzhu.jpg" alt="赞助" width="200">
 </div>
 
 ## 赞助商
@@ -264,6 +264,6 @@ bats tests/security-regression.bats
 
 **如果这个项目对你有帮助，请给个 Star ⭐**
 
-[报告问题](https://github.com/sindricn/s-hy2/issues) · [提建议](https://github.com/sindricn/s-hy2/discussions)
+[报告问题](https://github.com/motao123/S-Hy2-Manager/issues) · [提建议](https://github.com/motao123/S-Hy2-Manager/discussions)
 
 </div>
