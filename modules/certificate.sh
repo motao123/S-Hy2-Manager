@@ -336,7 +336,7 @@ update_tls_config() {
     echo -n -e "${YELLOW}是否重启服务以应用新证书? [Y/n]: ${NC}"
     read -r restart
     if [[ ! $restart =~ ^[Nn]$ ]]; then
-        systemctl restart "$SERVICE_NAME"
+        systemctl restart "$HYSTERIA_SERVICE"
         log_success "服务已重启"
     fi
 }

@@ -257,7 +257,7 @@ modify_auth_password() {
     echo -n -e "${YELLOW}是否重启服务以应用更改? [Y/n]: ${NC}"
     read -r restart
     if [[ ! $restart =~ ^[Nn]$ ]]; then
-        systemctl restart "$SERVICE_NAME"
+        systemctl restart "$HYSTERIA_SERVICE"
         log_success "服务已重启"
     fi
     
@@ -343,7 +343,7 @@ modify_port_settings() {
     echo -n -e "${YELLOW}是否重启服务以应用更改? [Y/n]: ${NC}"
     read -r restart
     if [[ ! $restart =~ ^[Nn]$ ]]; then
-        systemctl restart "$SERVICE_NAME"
+        systemctl restart "$HYSTERIA_SERVICE"
         log_success "服务已重启"
     fi
     
@@ -445,7 +445,7 @@ modify_obfs_settings() {
             echo -n -e "${YELLOW}是否重启服务以应用更改? [Y/n]: ${NC}"
             read -r restart
             if [[ ! $restart =~ ^[Nn]$ ]]; then
-                systemctl restart "$SERVICE_NAME"
+                systemctl restart "$HYSTERIA_SERVICE"
                 log_success "服务已重启"
             fi
             ;;
@@ -515,7 +515,7 @@ edit_config_file() {
     echo -n -e "${YELLOW}配置已修改，是否重启服务以应用更改? [Y/n]: ${NC}"
     read -r restart
     if [[ ! $restart =~ ^[Nn]$ ]]; then
-        if systemctl restart "$SERVICE_NAME"; then
+        if systemctl restart "$HYSTERIA_SERVICE"; then
             log_success "服务已重启"
         else
             log_error "服务重启失败，请检查配置文件语法"
@@ -524,7 +524,7 @@ edit_config_file() {
             if [[ ! $restore =~ ^[Nn]$ ]]; then
                 cp "$HYSTERIA_CONFIG.bak" "$HYSTERIA_CONFIG"
                 chmod 600 "$HYSTERIA_CONFIG" 2>/dev/null || true
-                systemctl restart "$SERVICE_NAME"
+                systemctl restart "$HYSTERIA_SERVICE"
                 log_info "已恢复备份配置"
             fi
         fi

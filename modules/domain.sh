@@ -14,9 +14,9 @@ domain_management() {
         echo -e "${YELLOW}当前域名配置状态:${NC}"
         
         # 检查ACME域名
-        if [[ -f "$SERVER_DOMAIN_CONFIG" ]]; then
+        if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
             local acme_domain
-            acme_domain=$(cat "$SERVER_DOMAIN_CONFIG")
+            acme_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
             echo -e "ACME域名: ${GREEN}$acme_domain${NC}"
         else
             echo -e "ACME域名: ${YELLOW}未配置${NC}"
@@ -66,9 +66,9 @@ acme_domain_management() {
         echo ""
 
         # 显示当前配置
-        if [[ -f "$SERVER_DOMAIN_CONFIG" ]]; then
+        if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
             local current_domain
-            current_domain=$(cat "$SERVER_DOMAIN_CONFIG")
+            current_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
             echo -e "${GREEN}当前ACME域名: $current_domain${NC}"
         else
             echo -e "${YELLOW}当前未配置ACME域名${NC}"
@@ -146,9 +146,9 @@ test_domain_connectivity() {
     echo ""
     
     # 测试ACME域名
-    if [[ -f "$SERVER_DOMAIN_CONFIG" ]]; then
+    if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
         local acme_domain
-        acme_domain=$(cat "$SERVER_DOMAIN_CONFIG")
+        acme_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
         echo -e "${YELLOW}测试ACME域名: $acme_domain${NC}"
         verify_domain_resolution
     fi
@@ -202,7 +202,7 @@ set_masquerade_domain() {
         echo -n -e "${YELLOW}是否重启服务以应用更改? [Y/n]: ${NC}"
         read -r restart
         if [[ ! $restart =~ ^[Nn]$ ]]; then
-            systemctl restart "$SERVICE_NAME"
+            systemctl restart "$HYSTERIA_SERVICE"
             log_success "服务已重启"
         fi
     else
@@ -259,7 +259,7 @@ remove_masquerade_domain() {
         echo -n -e "${YELLOW}是否重启服务以应用更改? [Y/n]: ${NC}"
         read -r restart
         if [[ ! $restart =~ ^[Nn]$ ]]; then
-            systemctl restart "$SERVICE_NAME"
+            systemctl restart "$HYSTERIA_SERVICE"
             log_success "服务已重启"
         fi
     else
@@ -318,10 +318,10 @@ set_server_domain() {
     fi
 
     # 创建目录（如果不存在）
-    mkdir -p "$(dirname "$SERVER_DOMAIN_CONFIG")"
+    mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
     
     # 保存域名配置
-    echo "$domain" > "$SERVER_DOMAIN_CONFIG"
+    echo "$domain" > "$HYSTERIA_DOMAIN_CONF"
     log_success "服务器域名已设置: $domain"
 
     # 询问是否立即验证
@@ -339,14 +339,14 @@ verify_domain_resolution() {
     echo ""
     echo -e "${BLUE}验证域名解析${NC}"
 
-    if [[ ! -f "$SERVER_DOMAIN_CONFIG" ]]; then
+    if [[ ! -f "$HYSTERIA_DOMAIN_CONF" ]]; then
         log_error "未配置服务器域名"
         wait_for_user
         return
     fi
 
     local domain
-    domain=$(cat "$SERVER_DOMAIN_CONFIG")
+    domain=$(cat "$HYSTERIA_DOMAIN_CONF")
     local server_ip
     server_ip=$(get_server_ip)
 
@@ -404,21 +404,21 @@ remove_server_domain() {
     echo ""
     echo -e "${YELLOW}删除服务器域名配置${NC}"
 
-    if [[ ! -f "$SERVER_DOMAIN_CONFIG" ]]; then
+    if [[ ! -f "$HYSTERIA_DOMAIN_CONF" ]]; then
         log_warn "未配置服务器域名"
         wait_for_user
         return
     fi
 
     local domain
-    domain=$(cat "$SERVER_DOMAIN_CONFIG")
+    domain=$(cat "$HYSTERIA_DOMAIN_CONF")
     echo "当前配置域名: $domain"
     echo ""
     echo -n -e "${RED}确定要删除域名配置吗? [y/N]: ${NC}"
     read -r confirm
 
     if [[ $confirm =~ ^[Yy]$ ]]; then
-        rm -f "$SERVER_DOMAIN_CONFIG"
+        rm -f "$HYSTERIA_DOMAIN_CONF"
         log_success "域名配置已删除"
     else
         echo -e "${BLUE}取消删除${NC}"
