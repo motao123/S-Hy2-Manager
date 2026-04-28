@@ -250,9 +250,9 @@ set_masquerade_domain() {
 auto_select_masquerade_domain() {
     echo ""
     echo -e "${BLUE}自动测试并选择最佳伪装域名${NC}"
-    
+
     if safe_source_script "$SCRIPTS_DIR/domain-test.sh" "域名测试脚本"; then
-        test_masquerade_domains
+        interactive_domain_selection
     fi
 }
 
