@@ -248,6 +248,11 @@ uninstall_everything() {
         nft -a list chain ip nat prerouting 2>/dev/null | grep "redirect to :443" | grep -o 'handle [0-9]*' | awk '{print $2}' | sort -rn | while read -r h; do
             nft delete rule ip nat prerouting handle "$h" 2>/dev/null
         done
+        # 删除可能残留的 hysteria 命名 nft 表
+        if nft list table ip hysteria &>/dev/null; then
+            nft delete table ip hysteria 2>/dev/null
+            log_info "已清理 nftables hysteria 表"
+        fi
     fi
     if command -v iptables >/dev/null 2>&1; then
         iptables -t nat -L PREROUTING --line-numbers 2>/dev/null | grep "REDIRECT.*443" | awk '{print $1}' | tac | while read -r line; do

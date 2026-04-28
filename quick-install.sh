@@ -246,8 +246,8 @@ create_symlink() {
 
 # 创建桌面快捷方式 (可选)
 create_desktop_shortcut() {
-    if [[ -d "/home" ]] && [[ -n "$SUDO_USER" ]]; then
-        local user_home="/home/$SUDO_USER"
+    if [[ -d "/home" ]] && [[ -n "${SUDO_USER:-}" ]]; then
+        local user_home="/home/${SUDO_USER}"
         local desktop_dir="$user_home/Desktop"
         
         if [[ -d "$desktop_dir" ]]; then
@@ -266,7 +266,7 @@ Categories=Network;System;
 EOF
             
             chmod +x "$desktop_dir/S-Hy2-Manager.desktop"
-            chown "$SUDO_USER:$SUDO_USER" "$desktop_dir/S-Hy2-Manager.desktop"
+            chown "${SUDO_USER}:${SUDO_USER}" "$desktop_dir/S-Hy2-Manager.desktop"
             
             echo -e "${GREEN}桌面快捷方式已创建${NC}"
         fi
@@ -348,8 +348,8 @@ uninstall() {
     safe_remove_dir "$INSTALL_DIR"
     
     # 删除桌面快捷方式
-    if [[ -n "$SUDO_USER" ]]; then
-        rm -f "/home/$SUDO_USER/Desktop/S-Hy2-Manager.desktop"
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        rm -f "/home/${SUDO_USER}/Desktop/S-Hy2-Manager.desktop"
     fi
     
     echo -e "${GREEN}卸载完成${NC}"
