@@ -39,7 +39,7 @@ _run_safe_editor() {
 #     file: /path
 #   或:
 #     inline:
-#       - "direct(all, geoip:cn)"
+#       - "direct(geoip:cn)"
 _update_acl_in_config() {
     local acl_path="$1"
     local action="$2"   # "enable" 或 "disable"

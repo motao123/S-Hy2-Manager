@@ -140,7 +140,7 @@ show_live_connections() {
 
 # ========== 按用户查看流量 ==========
 show_user_traffic() {
-    echo -e "${Cyan}=== 按用户查看流量 ===${NC}"
+    echo -e "${CYAN}=== 按用户查看流量 ===${NC}"
     echo ""
 
     local auth_mode

@@ -139,32 +139,6 @@ set_bandwidth() {
     # 删除旧的 bandwidth 段并在正确位置插入新的
     local temp_file
     temp_file=$(create_temp_file)
-    local in_bw=false bw_inserted=false
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" =~ ^[[:space:]]*bandwidth: ]]; then
-            in_bw=true
-            continue
-        fi
-        if $in_bw; then
-            if [[ "$line" =~ ^[a-zA-Z] ]] || [[ "$line" =~ ^$ ]]; then
-                in_bw=false
-            else
-                continue
-            fi
-        fi
-
-        echo "$line" >> "$temp_file"
-
-        # 在 masquerade 块结束后插入 bandwidth
-        if [[ "$bw_inserted" == false && "$line" =~ ^masquerade:[[:space:]]*$ ]]; then
-            # 标记：等 masquerade 块结束后再插入
-            :
-        fi
-    done < "$HYSTERIA_CONFIG"
-
-    # 删除旧的 bandwidth 段并在正确位置插入新的
-    local temp_file
-    temp_file=$(create_temp_file)
     local in_bw=false bw_inserted=false in_masq=false
 
     while IFS= read -r line || [[ -n "$line" ]]; do
