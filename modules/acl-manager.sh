@@ -33,7 +33,13 @@ _run_safe_editor() {
     return 1
 }
 
-# 安全更新 ACL 配置行：逐行重写，避免 sed 拼接 ACL 路径
+# 安全更新 ACL 配置行：逐行重写
+# Hysteria v2.8+ acl 字段必须是结构化格式：
+#   acl:              (旧字符串格式 acl: "/path" 已废弃)
+#     file: /path
+#   或:
+#     inline:
+#       - "direct(all, geoip:cn)"
 _update_acl_in_config() {
     local acl_path="$1"
     local action="$2"   # "enable" 或 "disable"
@@ -47,32 +53,106 @@ _update_acl_in_config() {
 
     temp_file=$(create_temp_file)
 
+    local in_acl_block=false
+    local acl_base_indent=""
+
     while IFS= read -r line || [[ -n "$line" ]]; do
         if [[ "$action" == "enable" ]]; then
-            # 取消注释已存在的 acl 行（保留路径）
-            if [[ "$line" =~ ^#[[:space:]]*acl:[[:space:]]*(.*)$ ]]; then
-                local acl_value="${BASH_REMATCH[1]}"
-                if [[ -n "$acl_value" ]]; then
-                    printf 'acl: %s\n' "$(yaml_quote_scalar "$(yaml_unquote_scalar "$acl_value")")" >> "$temp_file"
-                else
-                    yaml_write_kv "" "acl" "$acl_path" >> "$temp_file"
+            # 检测 acl: 行（结构化格式：acl: 后面无值或换行）
+            if [[ "$line" =~ ^#[[:space:]]*acl: ]]; then
+                # 注释掉的 acl 行：取消注释，替换为新的结构化格式
+                printf 'acl:\n  file: %s\n' "$(yaml_quote_scalar "$acl_path")" >> "$temp_file"
+                acl_updated=true
+                # 跳过被注释掉的 acl 子行（如 #   file: ... 或 #   inline: ...）
+                while IFS= read -r sub_line || [[ -n "$sub_line" ]]; do
+                    if [[ "$sub_line" =~ ^#[[:space:]]+(file|inline): ]]; then
+                        continue
+                    else
+                        # 这行不属于注释的 acl 块，处理它
+                        line="$sub_line"
+                        break
+                    fi
+                done
+                # 继续处理当前行（可能是从内层 while 读到的非 acl 子行）
+                if [[ "$acl_updated" == true && "$line" =~ ^#[[:space:]]+(file|inline): ]]; then
+                    continue
                 fi
+                echo "$line" >> "$temp_file"
+                continue
+            fi
+
+            # 检测旧格式 acl: "/path"（字符串值，v2.8+ 不支持）
+            if [[ "$line" =~ ^[[:space:]]*acl:[[:space:]]+ ]]; then
+                # 替换为新的结构化格式
+                printf 'acl:\n  file: %s\n' "$(yaml_quote_scalar "$acl_path")" >> "$temp_file"
                 acl_updated=true
                 continue
             fi
+
+            # 检测结构化格式 acl: 行（无值，后面跟 file: 或 inline:）
+            if [[ "$line" =~ ^[[:space:]]*acl:[[:space:]]*$ ]]; then
+                # 已有结构化 acl 块，更新 file 路径
+                acl_updated=true
+                acl_base_indent=$(echo "$line" | sed 's/acl:.*//')
+                echo "$line" >> "$temp_file"
+                in_acl_block=true
+                # 写入/替换 file: 行
+                printf '%sfile: %s\n' "${acl_base_indent}  " "$(yaml_quote_scalar "$acl_path")" >> "$temp_file"
+                continue
+            fi
+
+            # 在 acl 块内，跳过旧的 file: 行（已经写入了新的）
+            if [[ "$in_acl_block" == true ]]; then
+                local sub_indent
+                sub_indent=$(echo "$line" | sed 's/[a-zA-Z].*//')
+                if [[ "$line" =~ ^[[:space:]]*file: ]]; then
+                    # 跳过旧的 file 行
+                    continue
+                elif [[ ${#sub_indent} -le ${#acl_base_indent} && "$line" =~ ^[[:space:]]*[a-zA-Z]+: ]]; then
+                    # 离开 acl 块
+                    in_acl_block=false
+                fi
+                echo "$line" >> "$temp_file"
+                continue
+            fi
+
             echo "$line" >> "$temp_file"
+
         elif [[ "$action" == "disable" ]]; then
-            # 注释掉 acl 行（保留路径）
-            if [[ "$line" =~ ^[[:space:]]*acl:[[:space:]]* ]]; then
+            # 检测 acl: 行（结构化或旧格式）
+            if [[ "$line" =~ ^[[:space:]]*acl:[[:space:]]*$ ]]; then
+                # 结构化格式：注释整个 acl 块
+                echo "#acl:" >> "$temp_file"
+                acl_updated=true
+                in_acl_block=true
+                acl_base_indent=$(echo "$line" | sed 's/acl:.*//')
+                continue
+            elif [[ "$line" =~ ^[[:space:]]*acl:[[:space:]]+ ]]; then
+                # 旧字符串格式：注释整行
                 echo "#$line" >> "$temp_file"
                 acl_updated=true
                 continue
             fi
+
+            # 在 acl 块内，注释子行
+            if [[ "$in_acl_block" == true ]]; then
+                local sub_indent
+                sub_indent=$(echo "$line" | sed 's/[a-zA-Z].*//')
+                if [[ ${#sub_indent} -le ${#acl_base_indent} && "$line" =~ ^[[:space:]]*[a-zA-Z]+: ]]; then
+                    # 离开 acl 块
+                    in_acl_block=false
+                    echo "$line" >> "$temp_file"
+                    continue
+                fi
+                echo "#$line" >> "$temp_file"
+                continue
+            fi
+
             echo "$line" >> "$temp_file"
         fi
     done < "$config_file"
 
-    # 如果没有找到 acl 行且需要启用，插入新行
+    # 如果没有找到 acl 行且需要启用，插入新的结构化 acl 块
     if [[ "$action" == "enable" && "$acl_updated" == false ]]; then
         # 在 masquerade 行之前插入
         rm -f "$temp_file"
@@ -81,14 +161,14 @@ _update_acl_in_config() {
 
         while IFS= read -r line || [[ -n "$line" ]]; do
             if [[ "$acl_updated" == false && "$line" =~ ^masquerade: ]]; then
-                yaml_write_kv "" "acl" "$acl_path" >> "$temp_file"
+                printf 'acl:\n  file: %s\n' "$(yaml_quote_scalar "$acl_path")" >> "$temp_file"
                 acl_updated=true
             fi
             echo "$line" >> "$temp_file"
         done < "$config_file"
 
         if [[ "$acl_updated" == false ]]; then
-            yaml_write_kv "" "acl" "$acl_path" >> "$temp_file"
+            printf 'acl:\n  file: %s\n' "$(yaml_quote_scalar "$acl_path")" >> "$temp_file"
         fi
     fi
 
@@ -145,8 +225,8 @@ show_acl_status() {
         echo -e "ACL 状态: ${GREEN}已配置（$rule_count 条规则）${NC}"
         echo -e "规则文件: ${CYAN}$ACL_FILE${NC}"
 
-        # 检查是否在配置中启用
-        if grep -q "acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
+        # 检查是否在配置中启用（兼容旧字符串格式和新结构化格式）
+        if grep -q "^[[:space:]]*acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
             echo -e "配置中: ${GREEN}已启用${NC}"
         else
             echo -e "配置中: ${YELLOW}未启用${NC}"
@@ -209,7 +289,7 @@ generate_acl_file() {
     echo -e "文件: ${CYAN}$ACL_FILE${NC}"
 
     # 提示启用
-    if ! grep -q "acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
+    if ! grep -q "^[[:space:]]*acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
         echo -n "是否在配置中启用 ACL？[y/N]: "
         local confirm
         read -r confirm
@@ -250,7 +330,8 @@ view_acl_rules() {
 
 # ========== 启用/禁用 ACL ==========
 toggle_acl() {
-    if grep -q "^acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
+    # 兼容旧字符串格式和新结构化格式
+    if grep -q "^[[:space:]]*acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
         # 已启用，禁用它
         echo -e "${YELLOW}当前 ACL 已启用${NC}"
         echo -n "是否禁用？[y/N]: "

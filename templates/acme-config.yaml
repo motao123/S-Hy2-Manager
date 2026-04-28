@@ -48,8 +48,9 @@ masquerade:
 # 可选：禁用 UDP
 # disableUDP: false
 
-# 可选：ACL 规则文件
-# acl: /path/to/acl.txt
+# 可选：ACL 规则
+# acl:
+#   file: /path/to/acl.txt
 
 # 可选：出站配置
 # outbounds:

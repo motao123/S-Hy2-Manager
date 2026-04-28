@@ -70,8 +70,9 @@ http:
 #   level: info
 #   output: hysteria-client.log
 
-# ACL 规则文件
-# acl: client-acl.txt
+# ACL 规则
+# acl:
+#   file: client-acl.txt
 
 # 懒惰模式 (仅在需要时连接)
 # lazy: true
