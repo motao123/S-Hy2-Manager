@@ -151,6 +151,13 @@ test_dns_resolution() {
         fi
     fi
 
+    # 使用 getent hosts 回退（glibc 自带，几乎所有 Linux 默认有）
+    if command -v getent >/dev/null 2>&1; then
+        if timeout "$timeout_val" getent hosts "$domain" >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+
     return 1
 }
 
@@ -168,7 +175,7 @@ test_domain_latency() {
         local cached_result
         cached_result=$(read_from_cache "$cache_file")
         # 验证缓存结果是否包含DNS验证状态
-        if [[ "$cached_result" =~ dns_ok|dns_fail ]]; then
+        if [[ "$cached_result" =~ dns_ok|dns_fail|dns_unknown ]]; then
             echo "$cached_result"
             return 0
         fi
@@ -176,13 +183,26 @@ test_domain_latency() {
 
     # 首先验证DNS解析
     local dns_status="dns_fail"
-    if test_dns_resolution "$domain" "$timeout_val"; then
-        dns_status="dns_ok"
+
+    # 检查是否有可用的 DNS 工具
+    local has_dns_tool=false
+    command -v dig >/dev/null 2>&1 && has_dns_tool=true
+    command -v nslookup >/dev/null 2>&1 && has_dns_tool=true
+    command -v host >/dev/null 2>&1 && has_dns_tool=true
+    command -v getent >/dev/null 2>&1 && has_dns_tool=true
+
+    if [[ "$has_dns_tool" == "true" ]]; then
+        if test_dns_resolution "$domain" "$timeout_val"; then
+            dns_status="dns_ok"
+        else
+            # DNS解析失败，直接返回失败状态
+            local result="9999 $domain $dns_status"
+            write_to_cache "$cache_file" "$result"
+            return 1
+        fi
     else
-        # DNS解析失败，直接返回失败状态
-        local result="9999 $domain $dns_status"
-        write_to_cache "$cache_file" "$result"
-        return 1
+        # 无 DNS 工具，标记为未知，通过后续 openssl 连接测试判断域名是否可用
+        dns_status="dns_unknown"
     fi
 
     # 多次测试取最佳结果（只有DNS解析成功才测试连接）
@@ -252,7 +272,7 @@ test_all_domains_concurrent_silent() {
     # 返回排序结果（过滤DNS失败的域名）
     if [[ -s "$results_file" ]]; then
         # 只返回DNS解析成功且延迟不是9999的结果
-        awk '$1 != 9999 && $3 == "dns_ok" {print $1 " " $2 " " $3}' "$results_file" | sort -n
+        awk '$1 != 9999 && ($3 == "dns_ok" || $3 == "dns_unknown") {print $1 " " $2 " " $3}' "$results_file" | sort -n
         local exit_code=0
     else
         local exit_code=1
@@ -324,7 +344,7 @@ test_all_domains_concurrent() {
     # 返回排序结果（过滤DNS失败的域名）
     if [[ -s "$results_file" ]]; then
         # 只返回DNS解析成功且延迟不是9999的结果
-        awk '$1 != 9999 && $3 == "dns_ok" {print $1 " " $2 " " $3}' "$results_file" | sort -n
+        awk '$1 != 9999 && ($3 == "dns_ok" || $3 == "dns_unknown") {print $1 " " $2 " " $3}' "$results_file" | sort -n
         local exit_code=0
     else
         local exit_code=1
@@ -374,6 +394,8 @@ show_test_results() {
         local dns_display
         if [[ "$dns_status" == "dns_ok" ]]; then
             dns_display="${GREEN}正常${NC}"
+        elif [[ "$dns_status" == "dns_unknown" ]]; then
+            dns_display="${YELLOW}未验证${NC}"
         else
             dns_display="${RED}失败${NC}"
         fi
@@ -393,7 +415,7 @@ get_best_domain() {
         local dns_status
         dns_status=$(echo "$best_result" | awk '{print $3}')
         # 确保DNS解析成功
-        if [[ "$dns_status" == "dns_ok" ]]; then
+        if [[ "$dns_status" == "dns_ok" || "$dns_status" == "dns_unknown" ]]; then
             echo "https://$domain/"
         else
             echo "https://news.ycombinator.com/"
@@ -413,7 +435,7 @@ get_best_domain_name() {
         local dns_status
         dns_status=$(echo "$best_result" | awk '{print $3}')
         # 确保DNS解析成功
-        if [[ "$dns_status" == "dns_ok" ]]; then
+        if [[ "$dns_status" == "dns_ok" || "$dns_status" == "dns_unknown" ]]; then
             echo "$domain"
         else
             echo "cdn.jsdelivr.net"
@@ -509,7 +531,7 @@ interactive_domain_selection() {
             local dns_status
             dns_status=$(echo "$line" | awk '{print $3}')
 
-            if [[ "$latency" =~ ^[0-9]+$ ]] && [[ -n "$domain" ]] && [[ ! "$domain" =~ [[:space:]] ]] && [[ "$dns_status" == "dns_ok" ]]; then
+            if [[ "$latency" =~ ^[0-9]+$ ]] && [[ -n "$domain" ]] && [[ ! "$domain" =~ [[:space:]] ]] && [[ "$dns_status" == "dns_ok" || "$dns_status" == "dns_unknown" ]]; then
                 # 延迟评级
                 local rating
                 if [[ $latency -lt 100 ]]; then
@@ -677,6 +699,8 @@ test_custom_domains() {
                 local dns_display
                 if [[ "$dns_status" == "dns_ok" ]]; then
                     dns_display="${GREEN}正常${NC}"
+                elif [[ "$dns_status" == "dns_unknown" ]]; then
+                    dns_display="${YELLOW}未验证${NC}"
                 else
                     dns_display="${RED}失败${NC}"
                 fi
