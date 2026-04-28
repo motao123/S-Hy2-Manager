@@ -39,7 +39,7 @@ sudo s-hy2
 
 ```bash
 git clone https://github.com/motao123/S-Hy2-Manager.git
-cd s-hy2
+cd S-Hy2-Manager
 chmod +x hy2-manager.sh scripts/*.sh modules/*.sh
 sudo ./hy2-manager.sh
 ```
@@ -102,7 +102,7 @@ sudo s-hy2 -v                       # 显示版本
 ## 项目结构
 
 ```
-s-hy2/
+S-Hy2-Manager/
 ├── hy2-manager.sh              # 主入口（菜单 + CLI 分发 + 核心函数）
 ├── install.sh                  # 安装 / 卸载脚本
 ├── quick-install.sh            # 一键安装脚本

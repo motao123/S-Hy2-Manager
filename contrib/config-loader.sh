@@ -106,10 +106,10 @@ setup_default_config() {
     echo "使用默认配置设置..." >&2
 
     # 项目信息
-    PROJECT_NAME=${PROJECT_NAME:-"s-hy2"}
+    PROJECT_NAME=${PROJECT_NAME:-"S-Hy2-Manager"}
     PROJECT_VERSION=${PROJECT_VERSION:-"1.1.2"}
-    PROJECT_REPO_URL=${PROJECT_REPO_URL:-"https://github.com/sindricn/s-hy2"}
-    PROJECT_RAW_URL=${PROJECT_RAW_URL:-"https://raw.githubusercontent.com/sindricn/s-hy2/main"}
+    PROJECT_REPO_URL=${PROJECT_REPO_URL:-"https://github.com/motao123/S-Hy2-Manager"}
+    PROJECT_RAW_URL=${PROJECT_RAW_URL:-"https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main"}
 
     # 基本设置
     DEFAULT_LISTEN_PORT=${DEFAULT_LISTEN_PORT:-443}

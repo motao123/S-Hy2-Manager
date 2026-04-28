@@ -270,7 +270,7 @@ uninstall_everything() {
     echo -e "${BLUE}系统已完全清理，感谢使用 S-Hy2 管理脚本${NC}"
     echo ""
     echo -e "${YELLOW}重新安装:${NC}"
-    echo "curl -fsSL --proto \"=https\" --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/sindricn/s-hy2/main/quick-install.sh"
+    echo "curl -fsSL --proto \"=https\" --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh"
     echo "bash -n quick-install.sh && sudo bash quick-install.sh"
     echo ""
     

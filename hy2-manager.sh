@@ -432,7 +432,7 @@ about_script() {
     echo "日志查看: journalctl -u hysteria-server"
     echo ""
     echo -e "${YELLOW}获取支持:${NC}"
-    echo "• GitHub: https://github.com/sindricn/s-hy2"
+    echo "• GitHub: https://github.com/motao123/S-Hy2-Manager"
     echo "• Issues: 在 GitHub 仓库提交问题"
     echo ""
     wait_for_user
@@ -526,7 +526,7 @@ init_script() {
 # ========== CLI 参数处理 ==========
 show_cli_help() {
     cat << 'HELP'
-S-Hy2 v2.0.0 — Hysteria2 管理脚本
+S-Hy2-Manager v2.0.0 — Hysteria2 管理脚本
 
 用法: hy2-manager.sh [选项]
 
@@ -580,7 +580,7 @@ handle_cli_args() {
         --auto-backup)   auto_backup ;;
         --validate)      validate_config ;;
         -h|--help)       show_cli_help ;;
-        -v|--version)    echo "s-hy2 v2.0.0" ;;
+        -v|--version)    echo "S-Hy2-Manager v2.0.0" ;;
         "")              return 1 ;;  # 无参数，进入交互模式
         *)               log_error "未知选项: $1"; show_cli_help; exit 1 ;;
     esac

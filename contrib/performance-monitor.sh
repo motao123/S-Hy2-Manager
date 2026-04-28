@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# s-hy2 性能监控脚本
+# S-Hy2-Manager 性能监控脚本
 # 监控脚本执行性能和系统资源使用
 
 set -euo pipefail
@@ -352,7 +352,7 @@ generate_performance_report() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>s-hy2 性能监控报告</title>
+    <title>S-Hy2-Manager 性能监控报告</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
@@ -368,7 +368,7 @@ generate_performance_report() {
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 s-hy2 性能监控报告</h1>
+            <h1>📊 S-Hy2-Manager 性能监控报告</h1>
             <p>生成时间: $(date)</p>
         </div>
 

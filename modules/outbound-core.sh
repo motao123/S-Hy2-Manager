@@ -19,7 +19,7 @@ init_outbound_manager() {
 create_basic_hysteria_config() {
     cat > "$HYSTERIA_CONFIG" << 'EOF'
 # Hysteria2 服务器配置文件
-# 此文件由 S-HY2 出站规则管理器创建
+# 此文件由 S-Hy2-Manager 出站规则管理器创建
 
 listen: :443
 

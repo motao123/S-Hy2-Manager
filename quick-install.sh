@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hysteria2 配置管理脚本一键安装脚本
-# 使用方法: curl -fsSL --proto "=https" --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/sindricn/s-hy2/main/quick-install.sh && bash -n quick-install.sh && sudo bash quick-install.sh
+# 使用方法: curl -fsSL --proto "=https" --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n quick-install.sh && sudo bash quick-install.sh
 # 调试模式: sudo bash quick-install.sh --debug
 
 # 检查是否启用调试模式
@@ -43,8 +43,8 @@ log_error() {
 SCRIPT_NAME="s-hy2"
 INSTALL_DIR="/opt/$SCRIPT_NAME"
 BIN_DIR="/usr/local/bin"
-REPO_URL="https://github.com/sindricn/s-hy2"
-RAW_URL="https://raw.githubusercontent.com/sindricn/s-hy2/dev"
+REPO_URL="https://github.com/motao123/S-Hy2-Manager"
+RAW_URL="https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main"
 
 # 打印标题
 print_header() {

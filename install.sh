@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hysteria2 安装脚本 (改进版本)
-# 作为 s-hy2 管理脚本的一部分
+# 作为 S-Hy2-Manager 管理脚本的一部分
 
 # 适度的错误处理
 set -uo pipefail

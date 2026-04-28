@@ -6,7 +6,7 @@
 #
 # 【安全说明】
 # SHA256 哈希用于以下两种场景，性质不同：
-#   1. 变化检测（s-hy2 脚本对比）：仅判断远程文件是否与本地不同，不构成安全校验
+#   1. 变化检测（S-Hy2-Manager 脚本对比）：仅判断远程文件是否与本地不同，不构成安全校验
 #   2. 完整性验证（Hysteria2 二进制）：下载后计算 SHA256 并记录，后续可检测篡改
 # 官方 Hysteria2 Release 未提供签名或 checksums 文件，因此无法做发布者真实性验证。
 # 如需最高安全保证，应手动下载并离线校验。
@@ -121,16 +121,16 @@ check_for_updates() {
 
     echo ""
 
-    # 检查 s-hy2 脚本更新
+    # 检查 S-Hy2-Manager 脚本更新
     # 注意：SHA256 对比仅用于变化检测，不构成安全完整性校验
-    echo -e "${YELLOW}正在检查 s-hy2 脚本更新...${NC}"
+    echo -e "${YELLOW}正在检查 S-Hy2-Manager 脚本更新...${NC}"
     local s_hy2_remote_hash
-    s_hy2_remote_hash=$(curl -fsSL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/sindricn/s-hy2/main/hy2-manager.sh" 2>/dev/null | sha256sum | awk '{print $1}')
+    s_hy2_remote_hash=$(curl -fsSL --proto "=https" --tlsv1.2 "https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/hy2-manager.sh" 2>/dev/null | sha256sum | awk '{print $1}')
     local s_hy2_local_hash
     s_hy2_local_hash=$(sha256sum "$SCRIPT_DIR/hy2-manager.sh" 2>/dev/null | awk '{print $1}')
 
     if [[ "$s_hy2_remote_hash" != "$s_hy2_local_hash" ]] && [[ -n "$s_hy2_remote_hash" ]]; then
-        echo -e "${YELLOW}发现 s-hy2 脚本更新${NC}"
+        echo -e "${YELLOW}发现 S-Hy2-Manager 脚本更新${NC}"
         echo -n "是否更新脚本？[y/N]: "
         local confirm
         read -r confirm
@@ -138,7 +138,7 @@ check_for_updates() {
             update_s-hy2
         fi
     else
-        echo -e "${GREEN}s-hy2 脚本已是最新${NC}"
+        echo -e "${GREEN}S-Hy2-Manager 脚本已是最新${NC}"
     fi
 }
 
@@ -179,9 +179,9 @@ update_hysteria() {
     fi
 }
 
-# ========== 更新 s-hy2 脚本 ==========
+# ========== 更新 S-Hy2-Manager 脚本 ==========
 update_s-hy2() {
-    echo -e "${YELLOW}正在更新 s-hy2 脚本...${NC}"
+    echo -e "${YELLOW}正在更新 S-Hy2-Manager 脚本...${NC}"
 
     # 安全方式：先下载到临时文件，验证语法后再以当前权限执行（避免 sudo 管道执行）
     local tmp_script
@@ -189,7 +189,7 @@ update_s-hy2() {
     chmod 600 "$tmp_script"
 
     if ! curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_script" \
-            "https://raw.githubusercontent.com/sindricn/s-hy2/main/quick-install.sh"; then
+            "https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh"; then
         log_error "更新脚本下载失败"
         rm -f "$tmp_script"
         return 1
@@ -206,9 +206,9 @@ update_s-hy2() {
     rm -f "$tmp_script"
 
     if [[ $exit_code -eq 0 ]]; then
-        log_success "s-hy2 脚本更新完成"
+        log_success "S-Hy2-Manager 脚本更新完成"
     else
-        log_error "s-hy2 脚本更新失败"
+        log_error "S-Hy2-Manager 脚本更新失败"
         return $exit_code
     fi
 }
