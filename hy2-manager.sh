@@ -232,7 +232,7 @@ show_status() {
         echo -e "程序状态: ${GREEN}✅ 已安装${NC}"
         echo -n "服务状态: "
         check_service_status
-        if [[ -f "$CONFIG_PATH" ]]; then
+        if [[ -f "$HYSTERIA_CONFIG" ]]; then
             echo -e "配置文件: ${GREEN}✅ 存在${NC}"
         else
             echo -e "配置文件: ${RED}❌ 不存在${NC}"
