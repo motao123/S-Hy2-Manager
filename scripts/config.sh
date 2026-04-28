@@ -258,6 +258,10 @@ masquerade:
     rewriteHost: true
 EOF
     
+    # 同步保存域名到域名配置文件，确保域名管理模块能读取
+    mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
+    echo "$domain" > "$HYSTERIA_DOMAIN_CONF"
+
     echo ""
     echo -e "${GREEN}ACME 配置文件生成成功!${NC}"
     echo -e "${YELLOW}域名: $domain${NC}"

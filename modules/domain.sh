@@ -14,9 +14,22 @@ domain_management() {
         echo -e "${YELLOW}当前域名配置状态:${NC}"
         
         # 检查ACME域名
+        local acme_domain=""
         if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
-            local acme_domain
             acme_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
+        fi
+
+        # 如果域名配置文件为空，尝试从 YAML 配置中提取 ACME 域名
+        if [[ -z "$acme_domain" && -f "$HYSTERIA_CONFIG" ]]; then
+            acme_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+            # 如果提取到了，自动补录到域名配置文件
+            if [[ -n "$acme_domain" ]]; then
+                mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
+                echo "$acme_domain" > "$HYSTERIA_DOMAIN_CONF"
+            fi
+        fi
+
+        if [[ -n "$acme_domain" ]]; then
             echo -e "ACME域名: ${GREEN}$acme_domain${NC}"
         else
             echo -e "ACME域名: ${YELLOW}未配置${NC}"
@@ -66,9 +79,20 @@ acme_domain_management() {
         echo ""
 
         # 显示当前配置
+        local current_domain=""
         if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
-            local current_domain
             current_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
+        fi
+        # 兜底：从 YAML 配置中提取
+        if [[ -z "$current_domain" && -f "$HYSTERIA_CONFIG" ]]; then
+            current_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+            if [[ -n "$current_domain" ]]; then
+                mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
+                echo "$current_domain" > "$HYSTERIA_DOMAIN_CONF"
+            fi
+        fi
+
+        if [[ -n "$current_domain" ]]; then
             echo -e "${GREEN}当前ACME域名: $current_domain${NC}"
         else
             echo -e "${YELLOW}当前未配置ACME域名${NC}"
@@ -144,11 +168,22 @@ test_domain_connectivity() {
     echo ""
     echo -e "${BLUE}测试域名连通性${NC}"
     echo ""
-    
+
     # 测试ACME域名
+    local acme_domain=""
     if [[ -f "$HYSTERIA_DOMAIN_CONF" ]]; then
-        local acme_domain
         acme_domain=$(cat "$HYSTERIA_DOMAIN_CONF")
+    fi
+    # 兜底：从 YAML 配置中提取
+    if [[ -z "$acme_domain" && -f "$HYSTERIA_CONFIG" ]]; then
+        acme_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+        if [[ -n "$acme_domain" ]]; then
+            mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
+            echo "$acme_domain" > "$HYSTERIA_DOMAIN_CONF"
+        fi
+    fi
+
+    if [[ -n "$acme_domain" ]]; then
         echo -e "${YELLOW}测试ACME域名: $acme_domain${NC}"
         verify_domain_resolution
     fi
