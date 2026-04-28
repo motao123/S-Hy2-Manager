@@ -688,6 +688,17 @@ if [[ -z "${HYSTERIA_SERVICE:-}" ]]; then
     readonly HYSTERIA_SERVICE="hysteria-server.service"
 fi
 
+# 出站规则相关路径
+if [[ -z "${RULES_DIR:-}" ]]; then
+    readonly RULES_DIR="$HYSTERIA_DIR/rules"
+fi
+if [[ -z "${RULES_LIBRARY:-}" ]]; then
+    readonly RULES_LIBRARY="$RULES_DIR/rules-library.yaml"
+fi
+if [[ -z "${RULES_STATE:-}" ]]; then
+    readonly RULES_STATE="$RULES_DIR/rules-state.yaml"
+fi
+
 # 自动初始化（仅初始化日志，不设置错误陷阱）
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     # 被作为模块导入时自动初始化日志

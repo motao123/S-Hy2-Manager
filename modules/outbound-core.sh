@@ -107,13 +107,10 @@ check_config_file_permissions() {
 init_rules_library() {
     if [[ ! -d "$RULES_DIR" ]]; then
         mkdir -p "$RULES_DIR" 2>/dev/null || {
-            log_error "无法创建规则库目录，将使用临时目录"
-            RULES_DIR="/tmp/hysteria-rules"
-            RULES_LIBRARY="$RULES_DIR/rules-library.yaml"
-            RULES_STATE="$RULES_DIR/rules-state.yaml"
-            mkdir -p "$RULES_DIR"
-            chmod 700 "$RULES_DIR"
+            log_error "无法创建规则库目录: $RULES_DIR"
+            return 1
         }
+        chmod 700 "$RULES_DIR"
     fi
 
     if [[ ! -f "$RULES_LIBRARY" ]]; then
