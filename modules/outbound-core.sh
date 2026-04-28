@@ -43,6 +43,10 @@ auth:
 # outbounds 段落请勿手动编辑
 EOF
 
+    # 设置配置文件权限
+    chmod 600 "$HYSTERIA_CONFIG" 2>/dev/null || true
+    chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null || true
+
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
         echo -e "${GREEN}✅ 基础配置文件创建成功${NC}"
         echo -e "${YELLOW}⚠️  请编辑配置文件设置 TLS 证书和认证密码:${NC}"
@@ -74,6 +78,20 @@ check_config_file_permissions() {
         else
             echo -e "${RED}❌ 权限修复失败，可能需要 root 权限${NC}"
             echo "请手动执行: sudo chmod 600 $HYSTERIA_CONFIG"
+        fi
+    fi
+
+    # 检查文件属主
+    local file_owner
+    file_owner=$(stat -c "%U" "$HYSTERIA_CONFIG" 2>/dev/null || stat -f "%Su" "$HYSTERIA_CONFIG" 2>/dev/null || echo "unknown")
+    if [[ "$file_owner" != "hysteria" ]] && id "hysteria" &>/dev/null; then
+        echo -e "${YELLOW}⚠️  配置文件属主不正确: $file_owner（应为 hysteria）${NC}"
+        echo -e "${BLUE}正在修复属主...${NC}"
+        if chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null; then
+            echo -e "${GREEN}✅ 属主修复成功 (hysteria:hysteria)${NC}"
+        else
+            echo -e "${RED}❌ 属主修复失败，可能需要 root 权限${NC}"
+            echo "请手动执行: sudo chown hysteria:hysteria $HYSTERIA_CONFIG"
         fi
     fi
 

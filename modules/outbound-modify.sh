@@ -218,7 +218,7 @@ modify_outbound_rule() {
                 }
                 in_rule && /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*:[[:space:]]*$/ { in_rule = 0 }
                 { print }
-                ' "$RULES_LIBRARY" > "${RULES_LIBRARY}.tmp" && mv "${RULES_LIBRARY}.tmp" "$RULES_LIBRARY"
+                ' "$RULES_LIBRARY" > "${RULES_LIBRARY}.tmp" && replace_config_file_securely "${RULES_LIBRARY}.tmp" "$RULES_LIBRARY"
 
                 log_success "描述已更新"
             fi
@@ -345,12 +345,11 @@ modify_server_address() {
         fi
     done < "$HYSTERIA_CONFIG"
 
-    if mv "$temp_config" "$HYSTERIA_CONFIG" 2>/dev/null; then
+    if replace_config_file_securely "$temp_config" "$HYSTERIA_CONFIG"; then
         log_success "服务器地址已更新"
         ask_restart_service
     else
         log_error "修改失败"
-        rm -f "$temp_config"
     fi
 }
 
@@ -428,7 +427,7 @@ modify_config_field() {
         fi
     done < "$HYSTERIA_CONFIG"
 
-    if mv "$temp_config" "$HYSTERIA_CONFIG" 2>/dev/null; then
+    if replace_config_file_securely "$temp_config" "$HYSTERIA_CONFIG"; then
         if [[ -n "$new_value" ]]; then
             log_success "${field_name} 已更新"
         else
@@ -437,7 +436,6 @@ modify_config_field() {
         ask_restart_service
     else
         log_error "修改失败"
-        rm -f "$temp_config"
     fi
 }
 

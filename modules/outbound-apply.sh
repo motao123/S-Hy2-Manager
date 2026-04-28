@@ -319,12 +319,11 @@ apply_outbound_to_config() {
     # 语法验证功能已移除 - 验证结果不准确且没有实际作用
 
     # 原子性替换配置文件
-    if mv "$temp_config" "$HYSTERIA_CONFIG"; then
+    if replace_config_file_securely "$temp_config" "$HYSTERIA_CONFIG"; then
         log_success "配置已成功应用到: $HYSTERIA_CONFIG"
         return 0
     else
         log_error "配置应用失败，请检查文件权限和磁盘空间"
-        rm -f "$temp_config"
         return 1
     fi
 }

@@ -736,6 +736,18 @@ fix_common_issues() {
         else
             echo "  ✅ 配置文件权限正常"
         fi
+
+        # 检查属主
+        local file_owner
+        file_owner=$(stat -c "%U" "$HYSTERIA_CONFIG" 2>/dev/null || echo "unknown")
+        if [[ "$file_owner" != "hysteria" ]] && id "hysteria" &>/dev/null; then
+            if chown hysteria:hysteria "$HYSTERIA_CONFIG"; then
+                echo "  ✅ 已修复配置文件属主为 hysteria:hysteria"
+                ((fixed_count++))
+            else
+                echo "  ❌ 配置文件属主修复失败"
+            fi
+        fi
     fi
 
     echo ""

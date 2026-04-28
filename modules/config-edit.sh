@@ -524,6 +524,7 @@ edit_config_file() {
             if [[ ! $restore =~ ^[Nn]$ ]]; then
                 cp "$HYSTERIA_CONFIG.bak" "$HYSTERIA_CONFIG"
                 chmod 600 "$HYSTERIA_CONFIG" 2>/dev/null || true
+                chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null || true
                 systemctl restart "$HYSTERIA_SERVICE"
                 log_info "已恢复备份配置"
             fi

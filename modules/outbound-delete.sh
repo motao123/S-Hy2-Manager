@@ -144,7 +144,7 @@ delete_outbound_rule() {
     done < "$temp_config"
 
     # 应用修改
-    if mv "$temp_config" "$HYSTERIA_CONFIG" 2>/dev/null; then
+    if replace_config_file_securely "$temp_config" "$HYSTERIA_CONFIG"; then
         echo -e "${GREEN}[SUCCESS]${NC} 出站规则 '$rule_name' 已删除"
 
         # 询问是否重启服务
@@ -580,13 +580,8 @@ delete_existing_outbound_from_config() {
         fi
     done < "$config_file"
 
-    # 替换原文件 - 增强错误处理
-    if mv "$temp_config" "$config_file" 2>/dev/null; then
-        echo -e "${GREEN}[SUCCESS]${NC} 规则 '$rule_name' 已从配置文件中删除"
-        return 0
-    elif cp "$temp_config" "$config_file" 2>/dev/null; then
-        # mv失败时尝试cp
-        rm -f "$temp_config"
+    # 替换原文件 - 原子操作
+    if replace_config_file_securely "$temp_config" "$config_file"; then
         echo -e "${GREEN}[SUCCESS]${NC} 规则 '$rule_name' 已从配置文件中删除"
         return 0
     else

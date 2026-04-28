@@ -262,6 +262,10 @@ EOF
     mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
     echo "$domain" > "$HYSTERIA_DOMAIN_CONF"
 
+    # 设置配置文件权限
+    chmod 600 "$HYSTERIA_CONFIG"
+    chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null || true
+
     echo ""
     echo -e "${GREEN}ACME 配置文件生成成功!${NC}"
     echo -e "${YELLOW}域名: $domain${NC}"
@@ -412,11 +416,13 @@ EOF
         echo -e "${YELLOW}混淆功能: 未启用${NC}"
     fi
     echo -e "${YELLOW}伪装网站: $masquerade_url${NC}"
-    
+
+    # 设置配置文件权限
+    chmod 600 "$HYSTERIA_CONFIG"
+    chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null || true
+
     wait_for_user
 }
-
-# get_server_ip 已移至 common.sh（使用更完善的版本）
 
 # 自动检测网卡
 get_network_interface() {

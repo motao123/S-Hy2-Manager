@@ -299,6 +299,8 @@ replace_config_file_securely() {
 
     if mv "$temp_file" "$target_file"; then
         chmod 600 "$target_file" 2>/dev/null || true
+        # hysteria 服务以 hysteria 用户运行，配置文件必须归属该用户才能读取
+        chown hysteria:hysteria "$target_file" 2>/dev/null || true
         return 0
     fi
 
