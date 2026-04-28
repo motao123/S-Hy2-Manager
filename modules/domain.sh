@@ -191,7 +191,7 @@ test_domain_connectivity() {
     # 测试伪装域名
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
         local masquerade_url
-        masquerade_url=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | awk '{print $2}')
+        masquerade_url=$(grep -A 3 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | awk '{print $2}' | tr -d '"' | tr -d "'")
         if [[ -n "$masquerade_url" ]]; then
             echo ""
             echo -e "${YELLOW}测试伪装域名连通性: $masquerade_url${NC}"
@@ -322,7 +322,15 @@ test_masquerade_connectivity() {
     fi
     
     # 测试DNS解析
-    if command -v dig &> /dev/null; then
+    if command -v getent &> /dev/null; then
+        local ip
+        ip=$(getent hosts "$domain" 2>/dev/null | awk '{print $1}' | head -1)
+        if [[ -n "$ip" && "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo -e "${GREEN}✅ DNS解析成功: $ip${NC}"
+        else
+            echo -e "${RED}❌ DNS解析失败${NC}"
+        fi
+    elif command -v dig &> /dev/null; then
         local ip
         ip=$(dig +short "$domain" A 2>/dev/null | head -1)
         if [[ -n "$ip" && "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -391,39 +399,61 @@ verify_domain_resolution() {
 
     # 使用多种方法解析域名
     local resolved_ips=()
-    local dns_tools=("dig" "nslookup" "host")
-    
-    for tool in "${dns_tools[@]}"; do
-        if command -v "$tool" &> /dev/null; then
-            local result
-            case $tool in
-                dig)
-                    result=$(dig +short "$domain" A | head -5)
-                    ;;
-                nslookup)
-                    result=$(nslookup "$domain" 2>/dev/null | grep "Address:" | tail -n +2 | awk '{print $2}' | head -5)
-                    ;;
-                host)
-                    result=$(host "$domain" 2>/dev/null | grep "has address" | awk '{print $4}' | head -5)
-                    ;;
-            esac
-            
-            if [[ -n "$result" ]]; then
-                echo "使用 $tool 解析结果:"
-                echo "$result" | while read -r ip; do
-                    if [[ -n "$ip" && "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-                        if [[ "$ip" == "$server_ip" ]]; then
-                            echo -e "  ${GREEN}✅ $ip (匹配)${NC}"
-                        else
-                            echo -e "  ${YELLOW}⚠️  $ip (不匹配)${NC}"
-                        fi
-                        resolved_ips+=("$ip")
+
+    # 优先使用 getent（glibc 自带，几乎所有 Linux 默认有）
+    if command -v getent &> /dev/null; then
+        local getent_result
+        getent_result=$(getent hosts "$domain" 2>/dev/null | awk '{print $1}' | head -5)
+        if [[ -n "$getent_result" ]]; then
+            echo "使用 getent 解析结果:"
+            echo "$getent_result" | while read -r ip; do
+                if [[ -n "$ip" && "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                    if [[ "$ip" == "$server_ip" ]]; then
+                        echo -e "  ${GREEN}✅ $ip (匹配)${NC}"
+                    else
+                        echo -e "  ${YELLOW}⚠️  $ip (不匹配)${NC}"
                     fi
-                done
-                break
-            fi
+                    resolved_ips+=("$ip")
+                fi
+            done
         fi
-    done
+    fi
+
+    # 回退到 dig/nslookup/host
+    if [[ ${#resolved_ips[@]} -eq 0 ]]; then
+        local dns_tools=("dig" "nslookup" "host")
+        for tool in "${dns_tools[@]}"; do
+            if command -v "$tool" &> /dev/null; then
+                local result
+                case $tool in
+                    dig)
+                        result=$(dig +short "$domain" A | head -5)
+                        ;;
+                    nslookup)
+                        result=$(nslookup "$domain" 2>/dev/null | grep "Address:" | tail -n +2 | awk '{print $2}' | head -5)
+                        ;;
+                    host)
+                        result=$(host "$domain" 2>/dev/null | grep "has address" | awk '{print $4}' | head -5)
+                        ;;
+                esac
+
+                if [[ -n "$result" ]]; then
+                    echo "使用 $tool 解析结果:"
+                    echo "$result" | while read -r ip; do
+                        if [[ -n "$ip" && "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                            if [[ "$ip" == "$server_ip" ]]; then
+                                echo -e "  ${GREEN}✅ $ip (匹配)${NC}"
+                            else
+                                echo -e "  ${YELLOW}⚠️  $ip (不匹配)${NC}"
+                            fi
+                            resolved_ips+=("$ip")
+                        fi
+                    done
+                    break
+                fi
+            fi
+        done
+    fi
 
     if [[ ${#resolved_ips[@]} -eq 0 ]]; then
         log_error "无法解析域名，可能原因:"
