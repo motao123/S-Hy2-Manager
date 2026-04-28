@@ -520,11 +520,11 @@ check_performance_status() {
     echo "  ⚖️  系统负载: $load_avg"
 
     # 检查是否有性能问题
-    if (( $(echo "$cpu_usage > 80" | bc -l) )); then
+    if awk -v value="$cpu_usage" 'BEGIN { exit !(value > 80) }'; then
         echo "  ⚠️  CPU 使用率过高"
     fi
 
-    if (( $(echo "$mem_usage > 90" | bc -l) )); then
+    if awk -v value="$mem_usage" 'BEGIN { exit !(value > 90) }'; then
         echo "  ⚠️  内存使用率过高"
     fi
 

@@ -151,12 +151,6 @@ S-Hy2-Manager/
 │   └── app.conf                #   全局参数（端口 / 超时 / 安全开关等）
 │
 ├── contrib/                    # 参考材料（非生产代码）
-├── tests/                      # bats 单元测试
-│   ├── common.bats             #   公共函数测试
-│   ├── config.bats             #   配置生成测试
-│   ├── input-validation.bats   #   输入验证测试
-│   ├── new-features.bats       #   新功能测试
-│   └── security-regression.bats#   安全回归测试
 │
 └── .github/workflows/
     └── shellcheck.yml          # CI — ShellCheck 代码检查
@@ -195,19 +189,6 @@ S-Hy2-Manager/
 | `HYSTERIA_PORT_HOPPING_CONF` | `/etc/hysteria/port-hopping.conf` |
 | `HYSTERIA_SERVICE` | `hysteria-server.service` |
 
-### 运行测试
-
-```bash
-# 安装 bats
-apt-get install bats
-
-# 全部测试
-bats tests/
-
-# 单个文件
-bats tests/security-regression.bats
-```
-
 ## 更新日志
 
 ### v2.0.0
@@ -216,7 +197,6 @@ bats tests/security-regression.bats
 - YAML 安全写入：集中化 `yaml_write_kv()` / `yaml_quote_scalar()`
 - 自动更新：MD5 → SHA256 变更检测 + 版本记录
 - CI：ShellCheck 自动检查
-- 测试：bats 测试框架覆盖核心函数与安全回归
 
 ### v1.1.2
 - 修复安装 Hysteria2 异常报错
