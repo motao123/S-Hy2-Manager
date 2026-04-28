@@ -209,10 +209,6 @@ generate_acl_file() {
     echo -e "文件: ${CYAN}$ACL_FILE${NC}"
 
     # 提示启用
-    if ! grep -q "^acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
-    echo -e "文件: ${CYAN}$ACL_FILE${NC}"
-
-    # 提示启用
     if ! grep -q "acl:" "$HYSTERIA_CONFIG" 2>/dev/null; then
         echo -n "是否在配置中启用 ACL？[y/N]: "
         local confirm
