@@ -368,6 +368,11 @@ uninstall() {
 
 # 简化的确认函数 - 直接安装或交互确认
 confirm_installation() {
+    if [[ "$DEBUG_MODE" == "true" ]]; then
+        echo -e "${BLUE}调试模式，跳过确认${NC}"
+        return 0
+    fi
+
     if [[ "$FORCE_INSTALL" == "true" ]]; then
         echo -e "${BLUE}强制模式，跳过确认${NC}"
         return 0
