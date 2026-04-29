@@ -160,7 +160,7 @@ download_scripts() {
     echo -e "${BLUE}下载 Hysteria2 配置管理脚本...${NC}"
 
     # 创建安装目录
-    if ! mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/scripts" "$INSTALL_DIR/templates"; then
+    if ! mkdir -p "$INSTALL_DIR" "$INSTALL_DIR/scripts" "$INSTALL_DIR/modules" "$INSTALL_DIR/contrib" "$INSTALL_DIR/templates"; then
         echo -e "${RED}错误: 无法创建安装目录${NC}"
         exit 1
     fi
@@ -184,12 +184,11 @@ download_scripts() {
         exit 1
     fi
 
-    # 下载功能脚本
-    echo "下载功能模块..."
+    # 下载核心脚本
+    echo "下载核心脚本..."
     local scripts=(
         "common.sh:公共库脚本"
         "config.sh:配置脚本"
-        "config-loader.sh:配置加载器"
         "service.sh:服务管理脚本"
         "domain-test.sh:域名测试脚本"
         "node-info.sh:节点信息脚本"
@@ -197,14 +196,60 @@ download_scripts() {
         "secure-download.sh:安全下载模块"
         "firewall-manager.sh:防火墙管理模块"
         "outbound-manager.sh:出站管理模块"
-        "performance-monitor.sh:性能监控模块"
-        "performance-utils.sh:性能工具模块"
         "post-deploy-check.sh:部署后检查模块"
     )
 
     for script_info in "${scripts[@]}"; do
         IFS=':' read -r script_name script_desc <<< "$script_info"
         if ! download_file "$RAW_URL/scripts/$script_name" "scripts/$script_name" "$script_desc"; then
+            ((failed_downloads++))
+        fi
+    done
+
+    # 下载功能模块
+    echo "下载功能模块..."
+    local modules=(
+        "install.sh:安装模块"
+        "domain.sh:域名管理模块"
+        "certificate.sh:证书管理模块"
+        "port-hopping.sh:端口跳跃模块"
+        "config-edit.sh:配置编辑模块"
+        "user-manager.sh:用户管理模块"
+        "client-export.sh:客户端导出模块"
+        "backup.sh:备份恢复模块"
+        "bandwidth.sh:带宽限制模块"
+        "acl-manager.sh:ACL管理模块"
+        "log-manager.sh:日志管理模块"
+        "auto-update.sh:自动更新模块"
+        "speed-test.sh:速度测试模块"
+        "dns-manager.sh:DNS管理模块"
+        "traffic-stats.sh:流量统计模块"
+        "outbound-core.sh:出站核心模块"
+        "outbound-add.sh:出站添加模块"
+        "outbound-modify.sh:出站修改模块"
+        "outbound-delete.sh:出站删除模块"
+        "outbound-apply.sh:出站应用模块"
+        "outbound-view.sh:出站查看模块"
+    )
+
+    for module_info in "${modules[@]}"; do
+        IFS=':' read -r module_name module_desc <<< "$module_info"
+        if ! download_file "$RAW_URL/modules/$module_name" "modules/$module_name" "$module_desc"; then
+            ((failed_downloads++))
+        fi
+    done
+
+    # 下载 contrib 辅助模块（部分性能/配置加载功能在 contrib 目录）
+    echo "下载辅助模块..."
+    local contribs=(
+        "config-loader.sh:配置加载器"
+        "performance-monitor.sh:性能监控模块"
+        "performance-utils.sh:性能工具模块"
+    )
+
+    for contrib_info in "${contribs[@]}"; do
+        IFS=':' read -r contrib_name contrib_desc <<< "$contrib_info"
+        if ! download_file "$RAW_URL/contrib/$contrib_name" "contrib/$contrib_name" "$contrib_desc"; then
             ((failed_downloads++))
         fi
     done
@@ -230,6 +275,8 @@ download_scripts() {
     echo "设置执行权限..."
     chmod +x hy2-manager.sh 2>/dev/null || echo -e "${YELLOW}警告: 无法设置主脚本执行权限${NC}"
     chmod +x scripts/*.sh 2>/dev/null || echo -e "${YELLOW}警告: 无法设置脚本执行权限${NC}"
+    chmod +x modules/*.sh 2>/dev/null || echo -e "${YELLOW}警告: 无法设置模块执行权限${NC}"
+    chmod +x contrib/*.sh 2>/dev/null || echo -e "${YELLOW}警告: 无法设置辅助模块执行权限${NC}"
 
     if [[ $failed_downloads -gt 0 ]]; then
         echo -e "${YELLOW}警告: $failed_downloads 个文件下载失败，但继续安装...${NC}"
