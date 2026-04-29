@@ -137,13 +137,13 @@ set_recommended_dns() {
 
     case $choice in
         1)
-            echo -n -e "8.8.8.8:53\n1.1.1.1:53" | set_dns_config_from_stdin
+            set_dns_config_values "8.8.8.8:53" "1.1.1.1:53"
             ;;
         2)
-            echo -n -e "223.5.5.5:53\n119.29.29.29:53" | set_dns_config_from_stdin
+            set_dns_config_values "223.5.5.5:53" "119.29.29.29:53"
             ;;
         3)
-            echo -n -e "8.8.8.8:53\n223.5.5.5:53" | set_dns_config_from_stdin
+            set_dns_config_values "8.8.8.8:53" "223.5.5.5:53"
             ;;
         *)
             log_error "无效选择"
@@ -152,12 +152,10 @@ set_recommended_dns() {
     esac
 }
 
-# ========== 从标准输入设置 DNS（内部使用）==========
-set_dns_config_from_stdin() {
-    # 从 stdin 读取两行：dns1 和 dns2
-    local dns1 dns2
-    read -r dns1
-    read -r dns2
+# ========== 使用指定值设置 DNS（内部使用）==========
+set_dns_config_values() {
+    local dns1="${1:-}"
+    local dns2="${2:-}"
 
     if [[ -z "$dns1" ]]; then
         log_error "DNS 地址不能为空"
@@ -198,6 +196,16 @@ set_dns_config_from_stdin() {
     replace_config_file_securely "$temp_file" "$HYSTERIA_CONFIG"
     log_success "DNS 配置已设置"
     ask_restart_service
+}
+
+# ========== 从标准输入设置 DNS（内部使用）==========
+set_dns_config_from_stdin() {
+    # 从 stdin 读取两行：dns1 和 dns2
+    local dns1 dns2
+    read -r dns1 || dns1=""
+    read -r dns2 || dns2=""
+
+    set_dns_config_values "$dns1" "$dns2"
 }
 
 # ========== 移除 DNS 配置 ==========
