@@ -4,12 +4,23 @@
 # 使用方法: curl -fsSL --proto "=https" --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n quick-install.sh && sudo bash quick-install.sh
 # 调试模式: sudo bash quick-install.sh --debug
 
-# 检查是否启用调试模式
-if [[ "$1" == "--debug" ]]; then
+# 检查运行参数
+DEBUG_MODE=false
+FORCE_INSTALL=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --debug)
+            DEBUG_MODE=true
+            ;;
+        --force|-f|--yes|-y)
+            FORCE_INSTALL=true
+            ;;
+    esac
+done
+
+if [[ "$DEBUG_MODE" == "true" ]]; then
     set -x  # 启用调试输出
-    DEBUG_MODE=true
-else
-    DEBUG_MODE=false
 fi
 
 # 颜色定义
@@ -357,6 +368,11 @@ uninstall() {
 
 # 简化的确认函数 - 直接安装或交互确认
 confirm_installation() {
+    if [[ "$FORCE_INSTALL" == "true" ]]; then
+        echo -e "${BLUE}强制模式，跳过确认${NC}"
+        return 0
+    fi
+
     # 检查是否通过管道运行
     if [[ -t 0 ]]; then
         # 标准输入可用，可以进行交互
@@ -367,22 +383,19 @@ confirm_installation() {
             exit 0
         fi
     else
-        # 通过管道运行，检查是否有强制参数
-        if [[ "$1" != "--force" && "$1" != "-f" ]]; then
-            echo -e "${YELLOW}检测到通过管道运行脚本，开始安装...${NC}"
-        else
-            echo -e "${BLUE}强制模式，跳过确认${NC}"
-        fi
+        echo -e "${YELLOW}检测到通过管道运行脚本，开始安装...${NC}"
     fi
 }
 
 # 主函数
 main() {
     # 检查参数
-    if [[ "$1" == "--uninstall" ]]; then
-        uninstall
-        exit 0
-    fi
+    for arg in "$@"; do
+        if [[ "$arg" == "--uninstall" ]]; then
+            uninstall
+            exit 0
+        fi
+    done
 
     print_header
 
