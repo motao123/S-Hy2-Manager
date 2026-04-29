@@ -21,7 +21,7 @@ domain_management() {
 
         # 如果域名配置文件为空，尝试从 YAML 配置中提取 ACME 域名
         if [[ -z "$acme_domain" && -f "$HYSTERIA_CONFIG" ]]; then
-            acme_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+            acme_domain=$({ grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'"; } || true)
             # 如果提取到了，自动补录到域名配置文件
             if [[ -n "$acme_domain" ]]; then
                 mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
@@ -38,7 +38,7 @@ domain_management() {
         # 检查伪装域名
         local masquerade_domain=""
         if [[ -f "$HYSTERIA_CONFIG" ]]; then
-            masquerade_domain=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'" | sed 's|https\?://||' | sed 's|/.*||')
+            masquerade_domain=$({ grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'" | sed 's|https\?://||' | sed 's|/.*||'; } || true)
         fi
         
         if [[ -n "$masquerade_domain" ]]; then
@@ -85,7 +85,7 @@ acme_domain_management() {
         fi
         # 兜底：从 YAML 配置中提取
         if [[ -z "$current_domain" && -f "$HYSTERIA_CONFIG" ]]; then
-            current_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+            current_domain=$({ grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'"; } || true)
             if [[ -n "$current_domain" ]]; then
                 mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
                 echo "$current_domain" > "$HYSTERIA_DOMAIN_CONF"
@@ -132,7 +132,7 @@ masquerade_domain_management() {
         # 显示当前伪装域名配置
         local current_masquerade=""
         if [[ -f "$HYSTERIA_CONFIG" ]]; then
-            current_masquerade=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+            current_masquerade=$({ grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"; } || true)
         fi
         
         if [[ -n "$current_masquerade" ]]; then
@@ -176,7 +176,7 @@ test_domain_connectivity() {
     fi
     # 兜底：从 YAML 配置中提取
     if [[ -z "$acme_domain" && -f "$HYSTERIA_CONFIG" ]]; then
-        acme_domain=$(grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'")
+        acme_domain=$({ grep -A 1 "domains:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "^ *-" | head -1 | sed 's/^ *- *//' | tr -d '"' | tr -d "'"; } || true)
         if [[ -n "$acme_domain" ]]; then
             mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
             echo "$acme_domain" > "$HYSTERIA_DOMAIN_CONF"
@@ -191,7 +191,7 @@ test_domain_connectivity() {
     # 测试伪装域名
     if [[ -f "$HYSTERIA_CONFIG" ]]; then
         local masquerade_url
-        masquerade_url=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+        masquerade_url=$({ grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" 2>/dev/null | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"; } || true)
         if [[ -n "$masquerade_url" ]]; then
             echo ""
             echo -e "${YELLOW}测试伪装域名连通性: $masquerade_url${NC}"
@@ -273,7 +273,7 @@ remove_masquerade_domain() {
     fi
 
     local current_masquerade
-    current_masquerade=$(grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+    current_masquerade=$({ grep -A 10 "masquerade:" "$HYSTERIA_CONFIG" | grep "url:" | head -1 | awk '{print $2}' | tr -d '"' | tr -d "'"; } || true)
     echo "当前伪装域名: $current_masquerade"
     echo ""
     echo -n -e "${RED}确定要删除伪装域名配置吗? [y/N]: ${NC}"
