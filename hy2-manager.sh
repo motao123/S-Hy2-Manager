@@ -2,7 +2,8 @@
 
 # Hysteria2 配置管理脚本
 # 版本: 2.0.1
-# 作者: Hysteria2 Manager
+# 作者: 陌涛
+# 项目地址: https://github.com/motao123/S-Hy2-Manager
 
 # 颜色定义
 readonly RED='\033[0;31m'
@@ -407,6 +408,8 @@ about_script() {
     echo -e "${YELLOW}基本信息:${NC}"
     echo "脚本名称: S-Hy2 Manager"
     echo "版本: 2.0.1"
+    echo "作者: 陌涛"
+    echo "项目地址: https://github.com/motao123/S-Hy2-Manager"
     echo "功能: Hysteria2 代理服务器部署和管理工具"
     echo ""
     echo -e "${YELLOW}主要功能:${NC}"
@@ -432,7 +435,7 @@ about_script() {
     echo "日志查看: journalctl -u hysteria-server"
     echo ""
     echo -e "${YELLOW}获取支持:${NC}"
-    echo "• GitHub: https://github.com/motao123/S-Hy2-Manager"
+    echo "• 项目地址: https://github.com/motao123/S-Hy2-Manager"
     echo "• Issues: 在 GitHub 仓库提交问题"
     echo ""
     wait_for_user
