@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hysteria2 配置管理脚本
-# 版本: 2.0.0
+# 版本: 2.0.1
 # 作者: Hysteria2 Manager
 
 # 颜色定义
@@ -143,7 +143,7 @@ check_script_integrity() {
 print_header() {
     clear
     echo -e "${CYAN}================================================${NC}"
-    echo -e "${CYAN}           Hysteria2 配置管理脚本 v2.0.0${NC}"
+    echo -e "${CYAN}           Hysteria2 配置管理脚本 v2.0.1${NC}"
     echo -e "${CYAN}================================================${NC}"
     echo ""
 }
@@ -406,7 +406,7 @@ about_script() {
     echo ""
     echo -e "${YELLOW}基本信息:${NC}"
     echo "脚本名称: S-Hy2 Manager"
-    echo "版本: 2.0.0"
+    echo "版本: 2.0.1"
     echo "功能: Hysteria2 代理服务器部署和管理工具"
     echo ""
     echo -e "${YELLOW}主要功能:${NC}"
@@ -523,7 +523,7 @@ init_script() {
 # ========== CLI 参数处理 ==========
 show_cli_help() {
     cat << 'HELP'
-S-Hy2-Manager v2.0.0 — Hysteria2 管理脚本
+S-Hy2-Manager v2.0.1 — Hysteria2 管理脚本
 
 用法: hy2-manager.sh [选项]
 
@@ -577,7 +577,7 @@ handle_cli_args() {
         --auto-backup)   auto_backup ;;
         --validate)      validate_config ;;
         -h|--help)       show_cli_help ;;
-        -v|--version)    echo "S-Hy2-Manager v2.0.0" ;;
+        -v|--version)    echo "S-Hy2-Manager v2.0.1" ;;
         "")              return 1 ;;  # 无参数，进入交互模式
         *)               log_error "未知选项: $1"; show_cli_help; exit 1 ;;
     esac
