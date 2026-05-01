@@ -94,7 +94,8 @@ a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
 .menu-row .t{color:var(--text2)}
 
 /* ===== INSTALL ===== */
-.inst{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.03);max-width:640px}
+.inst-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.inst{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.03)}
 .inst .term-body{padding:18px 20px}
 .cp-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;margin-top:14px}
 .cp-row code{font-family:monospace;font-size:.76em;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -102,7 +103,7 @@ a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
 .cp-row .cp:hover{border-color:var(--accent);color:var(--accent)}
 .cp-row .cp.ok{border-color:var(--green);color:var(--green)}
 
-.cli-g{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:640px;margin-top:20px}
+.cli-g{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px}
 .cli-i{padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:9px;transition:border-color .15s}
 .cli-i:hover{border-color:#d5d9e2}
 .cli-i code{display:block;font-family:monospace;font-size:.75em;color:var(--accent);font-weight:700;margin-bottom:1px}
@@ -118,6 +119,7 @@ a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
 @media(max-width:860px){
   .fg{grid-template-columns:repeat(2,1fr)}
   .cli-g{grid-template-columns:repeat(2,1fr)}
+  .inst-grid{grid-template-columns:1fr}
   .hero h1{font-size:2.4em}
 }
 @media(max-width:640px){
@@ -271,24 +273,44 @@ a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
   <section class="sec" id="install">
     <div class="container">
       <div class="sec-head">
-        <h2>一键安装</h2>
+        <h2>安装方式</h2>
         <p>支持 Ubuntu / Debian / CentOS / Fedora</p>
       </div>
-      <div class="inst">
-        <div class="term-bar">
-          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-          <span class="name">terminal</span>
+      <div class="inst-grid">
+        <div class="inst">
+          <div class="term-bar">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span class="name">快速安装</span>
+          </div>
+          <div class="term-body">
+            <div class="l"><span class="p">$</span> curl -fsSL --proto '=https' --tlsv1.2 \</div>
+            <div class="l">&nbsp;&nbsp;-o quick-install.sh https://raw.githubusercontent.com/</div>
+            <div class="l">&nbsp;&nbsp;motao123/S-Hy2-Manager/main/quick-install.sh</div>
+            <div class="l"><span class="p">$</span> bash -n quick-install.sh <span class="cm"># 语法校验</span></div>
+            <div class="l"><span class="p">$</span> sudo bash quick-install.sh</div>
+            <div class="l"><span class="p">$</span> sudo s-hy2</div>
+            <div class="cp-row">
+              <code>curl -fsSL --proto '=https' --tlsv1.2 -o s.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n s.sh && sudo bash s.sh</code>
+              <button class="cp" onclick="cpy(this)">复制</button>
+            </div>
+          </div>
         </div>
-        <div class="term-body">
-          <div class="l"><span class="p">$</span> curl -fsSL --proto '=https' --tlsv1.2 \</div>
-          <div class="l">&nbsp;&nbsp;-o quick-install.sh https://raw.githubusercontent.com/</div>
-          <div class="l">&nbsp;&nbsp;motao123/S-Hy2-Manager/main/quick-install.sh</div>
-          <div class="l"><span class="p">$</span> bash -n quick-install.sh <span class="cm"># 语法校验</span></div>
-          <div class="l"><span class="p">$</span> sudo bash quick-install.sh</div>
-          <div class="l"><span class="p">$</span> sudo s-hy2</div>
-          <div class="cp-row">
-            <code>curl -fsSL --proto '=https' --tlsv1.2 -o s.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n s.sh && sudo bash s.sh</code>
-            <button class="cp" onclick="cpy(this)">复制</button>
+        <div class="inst">
+          <div class="term-bar">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span class="name">手动安装</span>
+          </div>
+          <div class="term-body">
+            <div class="l"><span class="p">$</span> git clone https://github.com/</div>
+            <div class="l">&nbsp;&nbsp;motao123/S-Hy2-Manager.git</div>
+            <div class="l"><span class="p">$</span> cd S-Hy2-Manager</div>
+            <div class="l"><span class="p">$</span> chmod +x hy2-manager.sh \</div>
+            <div class="l">&nbsp;&nbsp;scripts/*.sh modules/*.sh</div>
+            <div class="l"><span class="p">$</span> sudo ./hy2-manager.sh</div>
+            <div class="cp-row">
+              <code>git clone https://github.com/motao123/S-Hy2-Manager.git && cd S-Hy2-Manager && chmod +x hy2-manager.sh scripts/*.sh modules/*.sh && sudo ./hy2-manager.sh</code>
+              <button class="cp" onclick="cpy(this)">复制</button>
+            </div>
           </div>
         </div>
       </div>
