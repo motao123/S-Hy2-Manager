@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S-Hy2 Manager - Hysteria2 一键部署管理工具</title>
+<meta name="description" content="纯 Bash 实现的 Hysteria2 一键部署与管理工具，支持多用户、端口跳跃、证书管理、客户端导出等 21 项功能。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#fafbfc;--surface:#fff;--border:#e1e4e8;--border2:#eaeef2;
+  --text:#1a1d23;--dim:#5a606a;--muted:#949ba6;
+  --accent:#7c3aed;--accent2:#6d28d9;--accent-bg:rgba(124,58,237,.06);
+  --green:#16a34a;--green-bg:#dcfce7;
+  --blue:#2563eb;--blue-bg:#eff6ff;
+  --orange:#ea580c;--orange-bg:#fff7ed;
+  --pink:#db2777;--pink-bg:#fce7f3;
+  --cyan:#0891b2;--cyan-bg:#ecfeff;
+  --red:#dc2626;--red-bg:#fef2f2;
+  --radius:12px;--radius-lg:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 24px rgba(0,0,0,.08),0 1px 4px rgba(0,0,0,.04);
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.65;font-size:16px;-webkit-font-smoothing:antialiased}
+.container{max-width:1000px;margin:0 auto;padding:0 24px;width:100%}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
+
+/* navbar */
+.navbar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(250,251,252,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border2)}
+.navbar .container{display:flex;align-items:center;justify-content:space-between;height:56px}
+.logo{display:flex;align-items:center;gap:2px;color:var(--text);font-weight:800;font-size:1.15em;text-decoration:none;letter-spacing:-.5px}
+.logo em{font-style:normal;color:var(--accent)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{color:var(--dim);font-size:.88em;text-decoration:none;transition:color .15s;font-weight:500}
+.nav-links a:hover{color:var(--text)}
+.gh-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid var(--border);border-radius:8px;font-size:.82em;color:var(--dim);text-decoration:none;transition:all .15s}
+.gh-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* hero */
+.hero{padding:140px 0 80px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(124,58,237,.08) 0%,transparent 70%);pointer-events:none}
+.hero-tag{display:inline-block;font-size:.78em;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;padding:5px 14px;border:1px solid var(--accent);border-radius:20px;background:var(--accent-bg)}
+.hero h1{font-size:3.4em;font-weight:800;line-height:1.15;margin-bottom:20px;letter-spacing:-1.5px;color:var(--text)}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero .sub{font-size:1.1em;color:var(--dim);line-height:1.75;margin-bottom:36px;max-width:600px;margin-left:auto;margin-right:auto}
+.hero-badges{display:flex;gap:8px;justify-content:center;margin-bottom:36px;flex-wrap:wrap}
+.hero-badges .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:.78em;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--dim)}
+.hero-badges .badge .dot{width:6px;height:6px;border-radius:50%}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:10px;font-size:.92em;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;transition:all .2s;cursor:pointer}
+.btn:hover{text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px rgba(124,58,237,.25)}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);color:#fff;box-shadow:0 4px 16px rgba(124,58,237,.3)}
+.btn-outline{color:var(--dim)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+
+/* sections */
+.section{padding:80px 0}
+.section-header{text-align:center;margin-bottom:48px}
+.section-tag{display:inline-block;font-size:.78em;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+.section-header h2{font-size:2em;font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-.5px}
+.section-header .desc{font-size:1em;color:var(--dim);line-height:1.6;max-width:520px;margin:0 auto}
+.divider{border:none;border-top:1px solid var(--border2);margin:0}
+
+/* feature grid */
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.fc{padding:28px 24px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);transition:all .2s}
+.fc:hover{border-color:var(--border);box-shadow:var(--shadow);transform:translateY(-2px)}
+.fc .icon{font-size:1.5em;margin-bottom:14px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.fc h3{font-size:1em;font-weight:700;color:var(--text);margin-bottom:6px}
+.fc p{font-size:.86em;color:var(--dim);line-height:1.6}
+.fc .icon.purple{background:var(--accent-bg);color:var(--accent)}
+.fc .icon.blue{background:var(--blue-bg);color:var(--blue)}
+.fc .icon.green{background:var(--green-bg);color:var(--green)}
+.fc .icon.orange{background:var(--orange-bg);color:var(--orange)}
+.fc .icon.pink{background:var(--pink-bg);color:var(--pink)}
+.fc .icon.cyan{background:var(--cyan-bg);color:var(--cyan)}
+.fc .icon.red{background:var(--red-bg);color:var(--red)}
+
+/* highlights */
+.hl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.hl{padding:28px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);text-align:center;transition:all .2s}
+.hl:hover{border-color:var(--border);box-shadow:var(--shadow)}
+.hl .num{font-size:2.2em;font-weight:800;color:var(--accent);margin-bottom:4px}
+.hl .lbl{font-size:.85em;color:var(--dim)}
+
+/* install section */
+.install-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg);max-width:720px;margin:0 auto 40px}
+.term-bar{display:flex;align-items:center;gap:8px;padding:12px 18px;background:#f6f8fa;border-bottom:1px solid var(--border)}
+.term-dot{width:10px;height:10px;border-radius:50%}
+.term-dot.r{background:#ff5f57}.term-dot.y{background:#febc2e}.term-dot.g{background:#28c840}
+.term-bar .fname{margin-left:auto;font-family:"SF Mono","Cascadia Code","Consolas",monospace;font-size:.78em;color:var(--muted)}
+.term-body{padding:20px 24px}
+.term-line{display:flex;align-items:center;gap:10px;font-family:"SF Mono","Cascadia Code","Consolas",monospace;font-size:.85em;line-height:2;color:var(--dim)}
+.term-line .prompt{color:var(--green);flex-shrink:0;user-select:none}
+.term-line .comment{color:var(--muted);font-style:italic}
+.copy-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f6f8fa;border-radius:10px;margin-top:16px}
+.copy-row .prompt{color:var(--green);font-family:"SF Mono","Cascadia Code","Consolas",monospace;font-size:.9em;flex-shrink:0;user-select:none}
+.copy-row code{font-family:"SF Mono","Cascadia Code","Consolas",monospace;font-size:.82em;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-row .cp{padding:7px 18px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:.82em;font-weight:500;cursor:pointer;transition:all .12s;font-family:inherit;color:var(--text);white-space:nowrap;flex-shrink:0}
+.copy-row .cp:hover{border-color:var(--accent);color:var(--accent)}
+.copy-row .cp.copied{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+
+/* command grid */
+.cg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:720px;margin:0 auto}
+.ci{padding:14px 16px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;text-align:left;transition:all .15s}
+.ci:hover{border-color:var(--border);background:#f6f8fa}
+.ci code{display:block;font-family:"SF Mono","Cascadia Code","Consolas",monospace;font-size:.82em;color:var(--accent);font-weight:600;margin-bottom:3px}
+.ci span{font-size:.78em;color:var(--muted)}
+
+/* menu grid */
+.menu-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:720px;margin:0 auto}
+.menu-card{padding:24px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);transition:all .2s}
+.menu-card:hover{border-color:var(--border);box-shadow:var(--shadow)}
+.menu-card h3{font-size:.92em;font-weight:700;color:var(--text);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border2)}
+.menu-card ul{list-style:none;padding:0}
+.menu-card li{font-size:.82em;color:var(--dim);line-height:2;font-family:"SF Mono","Cascadia Code","Consolas",monospace}
+.menu-card li span{color:var(--accent);font-weight:600;margin-right:6px}
+
+/* footer */
+.ft{padding:40px 0;text-align:center;border-top:1px solid var(--border2)}
+.ft p{font-size:.85em;color:var(--muted)}
+.ft a{color:var(--dim);font-weight:500}
+.ft a:hover{color:var(--accent)}
+
+/* responsive */
+@media(max-width:860px){
+  .fg{grid-template-columns:repeat(2,1fr)}
+  .hl-grid{grid-template-columns:repeat(2,1fr)}
+  .cg{grid-template-columns:repeat(2,1fr)}
+  .menu-grid{grid-template-columns:1fr}
+  .hero h1{font-size:2.8em}
+}
+@media(max-width:640px){
+  .fg{grid-template-columns:1fr}
+  .hl-grid{grid-template-columns:1fr 1fr}
+  .cg{grid-template-columns:1fr 1fr}
+  .hero{padding:120px 0 60px}
+  .hero h1{font-size:2.2em}
+  .hero .sub{font-size:1em}
+  .section{padding:56px 0}
+}
+@media(max-width:420px){
+  .hl-grid{grid-template-columns:1fr 1fr}
+  .cg{grid-template-columns:1fr}
+  .hero h1{font-size:1.8em}
+  .copy-row{flex-wrap:wrap}
+  .copy-row code{white-space:normal;word-break:break-all}
+  .copy-row .cp{width:100%;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container">
+    <a href="#" class="logo">S-<em>Hy2</em></a>
+    <div class="nav-links">
+      <a href="#features">特性</a>
+      <a href="#capabilities">功能</a>
+      <a href="#install">安装</a>
+      <a href="https://github.com/motao123/S-Hy2-Manager" class="gh-btn" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <div class="hero-tag">v2.0.1 &middot; Pure Bash</div>
+      <h1>S-<em>Hy2</em> Manager</h1>
+      <p class="sub">Hysteria2 一键部署与管理工具，纯 Bash 实现，零依赖。21 项功能覆盖安装、配置、证书、多用户、客户端导出全流程。</p>
+      <div class="hero-badges">
+        <span class="badge"><span class="dot" style="background:var(--accent)"></span>Pure Bash</span>
+        <span class="badge"><span class="dot" style="background:var(--green)"></span>Hysteria2</span>
+        <span class="badge"><span class="dot" style="background:var(--blue)"></span>21 功能模块</span>
+        <span class="badge"><span class="dot" style="background:var(--orange)"></span>MIT 开源</span>
+      </div>
+      <div class="hero-btns">
+        <a href="#install" class="btn btn-primary">立即安装</a>
+        <a href="https://github.com/motao123/S-Hy2-Manager" class="btn btn-outline" target="_blank">查看 GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section class="section">
+    <div class="container">
+      <div class="hl-grid">
+        <div class="hl"><div class="num">21</div><div class="lbl">功能模块</div></div>
+        <div class="hl"><div class="num">6</div><div class="lbl">客户端平台</div></div>
+        <div class="hl"><div class="num">30+</div><div class="lbl">伪装域名</div></div>
+        <div class="hl"><div class="num">8</div><div class="lbl">部署验证项</div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Features</div>
+        <h2>为什么选择 S-Hy2？</h2>
+        <p class="desc">从零到生产环境，一条命令搞定</p>
+      </div>
+      <div class="fg">
+        <div class="fc">
+          <div class="icon purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <h3>真正一键部署</h3>
+          <p>7 步自动完成：域名检测、密码生成、证书申请、配置生成、端口跳跃、服务启动。</p>
+        </div>
+        <div class="fc">
+          <div class="icon green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <h3>安全优先设计</h3>
+          <p>输入注入防护、SHA256 完整性校验、TLS 1.2+ 强制、安全临时文件、白名单删除。</p>
+        </div>
+        <div class="fc">
+          <div class="icon blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <h3>双模式操作</h3>
+          <p>交互式菜单适合新手学习，CLI 参数适合自动化脚本和定时任务。</p>
+        </div>
+        <div class="fc">
+          <div class="icon orange">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+          </div>
+          <h3>智能伪装域名</h3>
+          <p>自动测试 30+ 热门域名延迟，DNS 验证 + 结果缓存，一键选择最优伪装。</p>
+        </div>
+        <div class="fc">
+          <div class="icon cyan">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <h3>多用户管理</h3>
+          <p>单密码 / 多用户模式切换，批量添加 1-100 用户，自动生成 16 位强密码。</p>
+        </div>
+        <div class="fc">
+          <div class="icon pink">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+          </div>
+          <h3>多客户端导出</h3>
+          <p>一键生成 Hysteria2、Clash、SingBox 配置，URI 链接、二维码、订阅地址。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section class="section" id="capabilities">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Capabilities</div>
+        <h2>完整功能一览</h2>
+        <p class="desc">21 个功能模块，覆盖 Hysteria2 全生命周期</p>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-card">
+          <h3>基础操作</h3>
+          <ul>
+            <li><span>1</span> 安装 Hysteria2</li>
+            <li><span>2</span> 快速设置（7 步自动化）</li>
+            <li><span>3</span> 手动设置</li>
+            <li><span>4</span> 修改配置</li>
+            <li><span>5</span> 域名管理</li>
+            <li><span>6</span> 证书管理</li>
+            <li><span>7</span> 服务管理</li>
+            <li><span>8</span> 客户端导出 / 订阅</li>
+          </ul>
+        </div>
+        <div class="menu-card">
+          <h3>高级功能</h3>
+          <ul>
+            <li><span>9</span> 出站规则管理</li>
+            <li><span>10</span> 防火墙管理</li>
+            <li><span>11</span> 多用户管理</li>
+            <li><span>12</span> ACL 规则</li>
+            <li><span>13</span> 带宽限制</li>
+            <li><span>14</span> DNS 配置</li>
+          </ul>
+        </div>
+        <div class="menu-card">
+          <h3>运维工具</h3>
+          <ul>
+            <li><span>15</span> 备份与恢复</li>
+            <li><span>16</span> 日志管理</li>
+            <li><span>17</span> 速度测试</li>
+            <li><span>18</span> 流量统计</li>
+            <li><span>19</span> 检查更新</li>
+            <li><span>20</span> 卸载</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section class="section" id="install">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Install</div>
+        <h2>一键安装</h2>
+        <p class="desc">支持 Ubuntu / Debian / CentOS / Fedora，一条命令部署</p>
+      </div>
+      <div class="install-box">
+        <div class="term-bar">
+          <span class="term-dot r"></span>
+          <span class="term-dot y"></span>
+          <span class="term-dot g"></span>
+          <span class="fname">终端</span>
+        </div>
+        <div class="term-body">
+          <div class="term-line"><span class="prompt">$</span> curl -fsSL --proto '=https' --tlsv1.2 -o quick-install.sh \</div>
+          <div class="term-line">&nbsp;&nbsp;https://raw.githubusercontent.com/.../quick-install.sh</div>
+          <div class="term-line"><span class="prompt">$</span> bash -n quick-install.sh <span class="comment"># 语法校验</span></div>
+          <div class="term-line"><span class="prompt">$</span> sudo bash quick-install.sh</div>
+          <div class="term-line"><span class="prompt">$</span> sudo s-hy2 <span class="comment"># 启动管理菜单</span></div>
+          <div class="copy-row">
+            <span class="prompt">$</span>
+            <code>curl -fsSL --proto '=https' --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n quick-install.sh && sudo bash quick-install.sh</code>
+            <button class="cp" onclick="cpy(this)">复制</button>
+          </div>
+        </div>
+      </div>
+      <div class="cg">
+        <div class="ci"><code>s-hy2</code><span>交互菜单</span></div>
+        <div class="ci"><code>s-hy2 --install</code><span>安装 Hy2</span></div>
+        <div class="ci"><code>s-hy2 --status</code><span>查看状态</span></div>
+        <div class="ci"><code>s-hy2 --restart</code><span>重启服务</span></div>
+        <div class="ci"><code>s-hy2 --export</code><span>导出配置</span></div>
+        <div class="ci"><code>s-hy2 --list-users</code><span>用户列表</span></div>
+        <div class="ci"><code>s-hy2 --backup</code><span>备份配置</span></div>
+        <div class="ci"><code>s-hy2 --speed-test</code><span>速度测试</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="ft">
+  <div class="container">
+    <p><a href="https://github.com/motao123/S-Hy2-Manager" target="_blank">motao123/S-Hy2-Manager</a> &middot; MIT 开源协议 &middot; 纯 Bash 构建</p>
+  </div>
+</footer>
+
+<script>
+function cpy(btn){
+  navigator.clipboard.writeText("curl -fsSL --proto '=https' --tlsv1.2 -o quick-install.sh https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh && bash -n quick-install.sh && sudo bash quick-install.sh").then(function(){
+    btn.textContent='已复制';
+    btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='复制';btn.classList.remove('copied')},2000);
+  });
+}
+</script>
+</body>
+</html>
