@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Hysteria2 配置管理脚本
-# 版本: 2.0.1
+# 版本: 2.0.2
 # 作者: 陌涛
 # 项目地址: https://github.com/motao123/S-Hy2-Manager
 
@@ -144,7 +144,7 @@ check_script_integrity() {
 print_header() {
     clear
     echo -e "${CYAN}================================================${NC}"
-    echo -e "${CYAN}           Hysteria2 配置管理脚本 v2.0.1${NC}"
+    echo -e "${CYAN}           Hysteria2 配置管理脚本 v2.0.2${NC}"
     echo -e "${CYAN}================================================${NC}"
     echo ""
 }
@@ -362,20 +362,12 @@ uninstall_hy2_and_config() {
     # 3. 卸载 Hysteria2 程序
     log_info "步骤 3/5: 卸载 Hysteria2 程序..."
     if check_hysteria_installed; then
-        local tmp_uninstall
-        tmp_uninstall=$(mktemp /tmp/s-hy2-uninstall.XXXXXX)
-        chmod 600 "$tmp_uninstall"
-
-        if curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_uninstall" "https://get.hy2.sh/" && bash -n "$tmp_uninstall"; then
-            if bash "$tmp_uninstall" --remove 2>/dev/null; then
-                log_info "Hysteria2 程序卸载成功"
-            else
-                log_warn "程序卸载失败，继续清理"
-            fi
+        # 统一通过 fetch_and_run_script 安全下载、语法校验、完整性校验后执行
+        if fetch_and_run_script "https://get.hy2.sh/" "hysteria-install" --remove 2>/dev/null; then
+            log_info "Hysteria2 程序卸载成功"
         else
-            log_warn "卸载脚本下载或语法检查失败，跳过程序卸载"
+            log_warn "程序卸载失败，继续清理"
         fi
-        rm -f "$tmp_uninstall"
     else
         log_info "Hysteria2 未安装，跳过程序卸载"
     fi
@@ -407,7 +399,7 @@ about_script() {
     echo ""
     echo -e "${YELLOW}基本信息:${NC}"
     echo "脚本名称: S-Hy2 Manager"
-    echo "版本: 2.0.1"
+    echo "版本: 2.0.2"
     echo "作者: 陌涛"
     echo "项目地址: https://github.com/motao123/S-Hy2-Manager"
     echo "功能: Hysteria2 代理服务器部署和管理工具"
@@ -526,7 +518,7 @@ init_script() {
 # ========== CLI 参数处理 ==========
 show_cli_help() {
     cat << 'HELP'
-S-Hy2-Manager v2.0.1 — Hysteria2 管理脚本
+S-Hy2-Manager v2.0.2 — Hysteria2 管理脚本
 
 用法: hy2-manager.sh [选项]
 
@@ -580,7 +572,7 @@ handle_cli_args() {
         --auto-backup)   auto_backup ;;
         --validate)      validate_config ;;
         -h|--help)       show_cli_help ;;
-        -v|--version)    echo "S-Hy2-Manager v2.0.1" ;;
+        -v|--version)    echo "S-Hy2-Manager v2.0.2" ;;
         "")              return 1 ;;  # 无参数，进入交互模式
         *)               log_error "未知选项: $1"; show_cli_help; exit 1 ;;
     esac

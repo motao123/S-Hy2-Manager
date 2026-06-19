@@ -100,15 +100,9 @@ uninstall_all_dependencies() {
     
     # 卸载程序
     if check_hysteria_installed; then
-        local tmp_rm
-        tmp_rm=$(mktemp /tmp/s-hy2-remove.XXXXXX)
-        chmod 600 "$tmp_rm"
-        if curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_rm" "https://get.hy2.sh/" && bash -n "$tmp_rm"; then
-            bash "$tmp_rm" --remove 2>/dev/null || log_warn "程序卸载失败"
-        else
-            log_warn "卸载脚本下载或语法检查失败，跳过自动卸载"
-        fi
-        rm -f "$tmp_rm"
+        # 统一通过 fetch_and_run_script 安全下载校验后执行
+        fetch_and_run_script "https://get.hy2.sh/" "hysteria-install" --remove 2>/dev/null \
+            || log_warn "程序卸载失败"
     fi
     
     # 删除配置
@@ -202,15 +196,9 @@ uninstall_everything() {
     # 3. 卸载 Hysteria2 程序
     log_info "步骤 3/7: 卸载 Hysteria2 程序..."
     if check_hysteria_installed; then
-        local tmp_rm
-        tmp_rm=$(mktemp /tmp/s-hy2-remove.XXXXXX)
-        chmod 600 "$tmp_rm"
-        if curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_rm" "https://get.hy2.sh/" && bash -n "$tmp_rm"; then
-            bash "$tmp_rm" --remove 2>/dev/null || log_warn "程序卸载失败，继续清理"
-        else
-            log_warn "卸载脚本下载或语法检查失败，跳过自动卸载，继续清理"
-        fi
-        rm -f "$tmp_rm"
+        # 统一通过 fetch_and_run_script 安全下载校验后执行
+        fetch_and_run_script "https://get.hy2.sh/" "hysteria-install" --remove 2>/dev/null \
+            || log_warn "程序卸载失败，继续清理"
     fi
     
     # 4. 卸载 nginx 和清理订阅文件

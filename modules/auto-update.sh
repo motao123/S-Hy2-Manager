@@ -146,26 +146,9 @@ check_for_updates() {
 update_hysteria() {
     echo -e "${YELLOW}正在更新 Hysteria2...${NC}"
 
-    # 安全方式：先下载到临时文件，验证语法后再执行
-    local tmp_script
-    tmp_script=$(mktemp /tmp/s-hy2-update.XXXXXX)
-    chmod 600 "$tmp_script"
-
-    if ! curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_script" "https://get.hy2.sh/"; then
-        log_error "更新脚本下载失败"
-        rm -f "$tmp_script"
-        return 1
-    fi
-
-    if ! bash -n "$tmp_script"; then
-        log_error "更新脚本语法检查失败，已拒绝执行"
-        rm -f "$tmp_script"
-        return 1
-    fi
-
-    bash "$tmp_script"
+    # 统一通过 fetch_and_run_script 安全下载、语法校验、完整性校验后执行
+    fetch_and_run_script "https://get.hy2.sh/" "hysteria-install"
     local exit_code=$?
-    rm -f "$tmp_script"
 
     if [[ $exit_code -eq 0 ]]; then
         # 更新成功后记录新版本信息
@@ -183,27 +166,10 @@ update_hysteria() {
 update_s-hy2() {
     echo -e "${YELLOW}正在更新 S-Hy2-Manager 脚本...${NC}"
 
-    # 安全方式：先下载到临时文件，验证语法后再以当前权限执行（避免 sudo 管道执行）
-    local tmp_script
-    tmp_script=$(mktemp /tmp/s-hy2-self-update.XXXXXX)
-    chmod 600 "$tmp_script"
-
-    if ! curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_script" \
-            "https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh"; then
-        log_error "更新脚本下载失败"
-        rm -f "$tmp_script"
-        return 1
-    fi
-
-    if ! bash -n "$tmp_script"; then
-        log_error "更新脚本语法检查失败，已拒绝执行"
-        rm -f "$tmp_script"
-        return 1
-    fi
-
-    sudo bash "$tmp_script"
+    # 统一通过 fetch_and_run_script 安全下载校验后执行（避免 sudo 管道执行）
+    # 注意：脚本更新以当前权限执行 quick-install.sh（管理脚本通常以 root/sudo 运行）
+    fetch_and_run_script "https://raw.githubusercontent.com/motao123/S-Hy2-Manager/main/quick-install.sh" "s-hy2-update"
     local exit_code=$?
-    rm -f "$tmp_script"
 
     if [[ $exit_code -eq 0 ]]; then
         log_success "S-Hy2-Manager 脚本更新完成"

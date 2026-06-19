@@ -60,6 +60,8 @@ create_backup() {
     echo ""
 
     mkdir -p "$BACKUP_DIR"
+    # 备份包含敏感配置（密码/证书），收紧目录权限为 700，仅 root 可访问
+    chmod 700 "$BACKUP_DIR" 2>/dev/null || true
 
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
@@ -130,6 +132,47 @@ MANIFEST
     rm -f "$manifest"
 }
 
+# 校验备份包内成员路径，防止路径遍历（Tar Slip）攻击。
+# 拒绝绝对路径、含 .. 段、或指向 /etc /boot /usr 等敏感目录的条目。
+# 返回 0 = 安全, 1 = 检测到危险条目。
+validate_backup_archive() {
+    local archive="$1"
+    local entry
+
+    if [[ ! -f "$archive" ]]; then
+        log_error "备份文件不存在: $archive"
+        return 1
+    fi
+
+    # 列出所有成员路径（含目录），逐条校验
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
+
+        # 去除可能的尾部斜杠便于判断
+        local stripped="${entry%/}"
+
+        # 拒绝绝对路径（以 / 开头）
+        if [[ "$stripped" == /* ]]; then
+            log_error "备份包含绝对路径条目，拒绝恢复: $entry"
+            return 1
+        fi
+
+        # 拒绝包含 .. 段（路径遍历）
+        # 将 / 作为分隔符拆分，任一段为 .. 即视为危险
+        local segment
+        local IFS='/'
+        read -ra segments <<< "$stripped"
+        for segment in "${segments[@]}"; do
+            if [[ "$segment" == ".." ]]; then
+                log_error "备份包含路径遍历条目（..），拒绝恢复: $entry"
+                return 1
+            fi
+        done
+    done < <(tar -tzf "$archive" 2>/dev/null)
+
+    return 0
+}
+
 # ========== 恢复备份 ==========
 restore_backup() {
     echo -e "${CYAN}=== 恢复备份 ===${NC}"
@@ -173,6 +216,12 @@ restore_backup() {
         return 0
     fi
 
+    # 恢复前校验备份包内路径，防止路径遍历覆盖任意系统文件
+    if ! validate_backup_archive "$selected_backup"; then
+        log_error "备份包路径校验失败，已中止恢复以防覆盖任意系统文件"
+        return 1
+    fi
+
     # 先备份当前配置
     echo -e "${YELLOW}正在备份当前配置...${NC}"
     local pre_restore_backup
@@ -181,11 +230,9 @@ restore_backup() {
         tar -czf "$pre_restore_backup" "$HYSTERIA_DIR" 2>/dev/null
     fi
 
-    # 恢复
+    # 恢复：解压到根目录前已校验路径，使用 --no-same-owner 避免恢复异常属主
     echo -e "${YELLOW}正在恢复备份...${NC}"
-    tar -xzf "$selected_backup" -C / 2>/dev/null
-
-    if [[ $? -eq 0 ]]; then
+    if tar -xzf "$selected_backup" -C / --no-same-owner 2>/dev/null; then
         log_success "备份恢复成功"
         echo -e "${YELLOW}建议重启 Hysteria2 服务以应用更改${NC}"
         ask_restart_service

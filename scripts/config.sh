@@ -186,7 +186,7 @@ configure_acme_mode() {
     echo -n -e "${BLUE}是否启用混淆功能? [Y/n]: ${NC}"
     read -r enable_obfs
     
-    local obfs_config=""
+    local obfs_password=""
     if [[ ! $enable_obfs =~ ^[Nn]$ ]]; then
         echo -n -e "${BLUE}请输入混淆密码 (留空自动生成): ${NC}"
         read -r -s obfs_password
@@ -196,12 +196,6 @@ configure_acme_mode() {
             echo -e "${GREEN}自动生成混淆密码: $obfs_password${NC}"
         fi
         
-        obfs_config="
-
-obfs:
-  type: salamander
-  salamander:
-    password: $obfs_password"
     fi
     
     # 选择伪装网站
@@ -235,36 +229,41 @@ obfs:
             ;;
     esac
     
-    # 生成配置文件
-    cat > "$HYSTERIA_CONFIG" << EOF
-# Hysteria2 配置文件 - ACME 模式
-# 生成时间: $(date)
+    # 生成配置文件（使用 yaml_write_kv 安全写入用户可控字段，避免特殊字符破坏 YAML 结构）
+    local _conf
+    _conf=$(create_temp_file)
+    {
+        echo "# Hysteria2 配置文件 - ACME 模式"
+        echo "# 生成时间: $(date)"
+        echo ""
+        echo "listen: :$listen_port"
+        echo ""
+        echo "acme:"
+        echo "  domains:"
+        printf '    - %s\n' "$(yaml_quote_scalar "$domain")"
+        yaml_write_kv "  " "email" "$email"
+        echo ""
+        echo "auth:"
+        echo "  type: password"
+        yaml_write_kv "  " "password" "$password"
+        if [[ -n "$obfs_password" ]]; then
+            echo "obfs:"
+            echo "  type: salamander"
+            echo "  salamander:"
+            yaml_write_kv "    " "password" "$obfs_password"
+        fi
+        echo ""
+        echo "masquerade:"
+        echo "  type: proxy"
+        echo "  proxy:"
+        yaml_write_kv "    " "url" "$masquerade_url"
+        echo "    rewriteHost: true"
+    } > "$_conf"
+    replace_config_file_securely "$_conf" "$HYSTERIA_CONFIG"
 
-listen: :$listen_port
-
-acme:
-  domains:
-    - $domain
-  email: $email
-
-auth:
-  type: password
-  password: $password$obfs_config
-
-masquerade:
-  type: proxy
-  proxy:
-    url: $masquerade_url
-    rewriteHost: true
-EOF
-    
     # 同步保存域名到域名配置文件，确保域名管理模块能读取
     mkdir -p "$(dirname "$HYSTERIA_DOMAIN_CONF")"
     echo "$domain" > "$HYSTERIA_DOMAIN_CONF"
-
-    # 设置配置文件权限
-    chmod 600 "$HYSTERIA_CONFIG"
-    chown hysteria:hysteria "$HYSTERIA_CONFIG" 2>/dev/null || true
 
     echo ""
     echo -e "${GREEN}ACME 配置文件生成成功!${NC}"
@@ -349,7 +348,7 @@ configure_self_cert_mode() {
     echo -n -e "${BLUE}是否启用混淆功能? [Y/n]: ${NC}"
     read -r enable_obfs
     
-    local obfs_config=""
+    local obfs_password=""
     if [[ ! $enable_obfs =~ ^[Nn]$ ]]; then
         echo -n -e "${BLUE}请输入混淆密码 (留空自动生成): ${NC}"
         read -r -s obfs_password
@@ -359,11 +358,6 @@ configure_self_cert_mode() {
             echo -e "${GREEN}自动生成混淆密码: $obfs_password${NC}"
         fi
         
-        obfs_config="
-obfs:
-  type: salamander
-  salamander:
-    password: $obfs_password"
     fi
     
     # 生成自签名证书
@@ -382,27 +376,37 @@ obfs:
         chown hysteria:hysteria /etc/hysteria/server.crt
     fi
     
-    # 生成配置文件
-    cat > "$HYSTERIA_CONFIG" << EOF
-# Hysteria2 配置文件 - 自签名证书模式
-# 生成时间: $(date)
-
-listen: :$listen_port
-
-tls:
-  cert: /etc/hysteria/server.crt
-  key: /etc/hysteria/server.key
-
-auth:
-  type: password
-  password: $password$obfs_config
-
-masquerade:
-  type: proxy
-  proxy:
-    url: $masquerade_url
-    rewriteHost: true
-EOF
+    # 生成配置文件（使用 yaml_write_kv 安全写入用户可控字段，避免特殊字符破坏 YAML 结构）
+    local _conf
+    _conf=$(create_temp_file)
+    {
+        echo "# Hysteria2 配置文件 - 自签名证书模式"
+        echo "# 生成时间: $(date)"
+        echo ""
+        echo "listen: :$listen_port"
+        echo ""
+        echo "tls:"
+        echo "  cert: /etc/hysteria/server.crt"
+        echo "  key: /etc/hysteria/server.key"
+        echo ""
+        echo "auth:"
+        echo "  type: password"
+        yaml_write_kv "  " "password" "$password"
+        if [[ -n "$obfs_password" ]]; then
+            echo ""
+            echo "obfs:"
+            echo "  type: salamander"
+            echo "  salamander:"
+            yaml_write_kv "    " "password" "$obfs_password"
+        fi
+        echo ""
+        echo "masquerade:"
+        echo "  type: proxy"
+        echo "  proxy:"
+        yaml_write_kv "    " "url" "$masquerade_url"
+        echo "    rewriteHost: true"
+    } > "$_conf"
+    replace_config_file_securely "$_conf" "$HYSTERIA_CONFIG"
     
     echo ""
     echo -e "${GREEN}自签名证书配置生成成功!${NC}"
@@ -575,7 +579,9 @@ clear_port_hopping_rules() {
         done < <(iptables -t nat -S PREROUTING 2>/dev/null)
 
         for rule in "${rules_to_delete[@]}"; do
-            if iptables -t nat $rule 2>/dev/null; then
+            local rule_args=()
+            read -r -a rule_args <<< "$rule"
+            if iptables -t nat "${rule_args[@]}" 2>/dev/null; then
                 echo "已清除规则: $rule"
                 cleared=true
             fi
@@ -620,7 +626,9 @@ clear_all_port_hopping_rules() {
     
     # 删除所有REDIRECT规则
     for rule in "${all_redirect_rules[@]}"; do
-        if iptables -t nat $rule 2>/dev/null; then
+        local rule_args=()
+        read -r -a rule_args <<< "$rule"
+        if iptables -t nat "${rule_args[@]}" 2>/dev/null; then
             echo "已清除规则: $rule"
             cleared=true
         fi
@@ -676,7 +684,9 @@ clear_specific_port_rules() {
     done < <(iptables -t nat -S PREROUTING 2>/dev/null)
     
     for rule in "${rules_to_delete[@]}"; do
-        if iptables -t nat $rule 2>/dev/null; then
+        local rule_args=()
+        read -r -a rule_args <<< "$rule"
+        if iptables -t nat "${rule_args[@]}" 2>/dev/null; then
             echo "已清除规则: $rule"
             cleared=true
         fi
@@ -924,32 +934,36 @@ quick_setup_hysteria() {
 
     # 5. 生成配置文件
     echo -e "${BLUE}步骤 5/7: 生成配置文件...${NC}"
-    cat > "$HYSTERIA_CONFIG" << EOF
-# Hysteria2 配置文件 - 一键快速配置
-# 生成时间: $(date)
-# 服务器IP: $server_ip
+    local _conf
+    _conf=$(create_temp_file)
+    {
+        echo "# Hysteria2 配置文件 - 一键快速配置"
+        echo "# 生成时间: $(date)"
+        printf '# 服务器IP: %s\n' "$server_ip"
+        echo ""
+        echo "listen: :443"
+        echo ""
+        echo "tls:"
+        echo "  cert: /etc/hysteria/server.crt"
+        echo "  key: /etc/hysteria/server.key"
+        echo ""
+        echo "auth:"
+        echo "  type: password"
+        yaml_write_kv "  " "password" "$auth_password"
+        echo ""
+        echo "masquerade:"
+        echo "  type: proxy"
+        echo "  proxy:"
+        yaml_write_kv "    " "url" "$masquerade_url"
+        echo "    rewriteHost: true"
+        echo ""
+        echo "obfs:"
+        echo "  type: salamander"
+        echo "  salamander:"
+        yaml_write_kv "    " "password" "$obfs_password"
+    } > "$_conf"
+    replace_config_file_securely "$_conf" "$HYSTERIA_CONFIG"
 
-listen: :443
-
-tls:
-  cert: /etc/hysteria/server.crt
-  key: /etc/hysteria/server.key
-
-auth:
-  type: password
-  password: $auth_password
-
-masquerade:
-  type: proxy
-  proxy:
-    url: $masquerade_url
-    rewriteHost: true
-
-obfs:
-  type: salamander
-  salamander:
-    password: $obfs_password
-EOF
 
     # 设置配置文件权限
     if id "hysteria" &>/dev/null; then

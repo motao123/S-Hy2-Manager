@@ -659,6 +659,63 @@ validate_hysteria_config() {
     return 1
 }
 
+# 安全下载并执行远程脚本（统一入口）
+#
+# 【安全说明】
+# Hysteria2 官方安装脚本 (get.hy2.sh) 与 GitHub raw 上的脚本均未提供签名或 checksums，
+# 因此本函数仅能保证：下载链路为 HTTPS、脚本语法有效、（可选）与本地记录的 SHA256 一致。
+# 这不等于发布者真实性验证——若官方源在首次记录前被替换，本机制无法防御。
+# 如需最高安全保证，应手动下载并离线校验。
+#
+# 用法: fetch_and_run_script <url> <hash_type> [args...]
+#   url       : 必须 HTTPS
+#   hash_type : 用于 SHA256 记录比对的文件类型标识（如 "hysteria-install" "s-hy2-update"）
+#               传空字符串则跳过哈希校验
+#   args...   : 透传给脚本的参数
+# 返回脚本的退出码；下载/校验失败返回非 0。
+fetch_and_run_script() {
+    local url="$1"
+    local hash_type="${2:-}"
+    shift 2 || true
+    local args=("$@")
+
+    local tmp_script
+    tmp_script=$(mktemp /tmp/s-hy2-fetch.XXXXXX)
+    chmod 600 "$tmp_script"
+
+    if ! curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_script" "$url" 2>/dev/null; then
+        log_error "脚本下载失败: $url"
+        rm -f "$tmp_script"
+        return 1
+    fi
+
+    # 语法检查，拒绝畸形脚本
+    if ! bash -n "$tmp_script" 2>/dev/null; then
+        log_error "下载的脚本语法检查失败，已拒绝执行"
+        rm -f "$tmp_script"
+        return 1
+    fi
+
+    # 可选：SHA256 完整性校验（与本地记录比对，检测篡改/劫持）
+    if [[ -n "$hash_type" ]] && declare -f verify_official_hash >/dev/null 2>&1; then
+        if ! verify_official_hash "$tmp_script" "$hash_type" 2>/dev/null; then
+            log_error "脚本完整性校验失败（SHA256 与本地记录不一致），已拒绝执行"
+            log_error "如为合法更新，请先删除对应哈希记录后重试"
+            rm -f "$tmp_script"
+            return 1
+        fi
+        # 校验通过后，若文件内容变化（合法更新），刷新本地记录
+        if declare -f update_recorded_hash >/dev/null 2>&1; then
+            update_recorded_hash "$tmp_script" "$hash_type" 2>/dev/null || true
+        fi
+    fi
+
+    bash "$tmp_script" "${args[@]}"
+    local rc=$?
+    rm -f "$tmp_script"
+    return $rc
+}
+
 # 导出函数供其他脚本使用
 export -f init_logging
 export -f log_debug log_info log_warn log_error log_fatal log_success

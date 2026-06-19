@@ -53,8 +53,8 @@ load_config() {
         return 1
     fi
 
-    # 加载配置文件
-    if source "$config_file"; then
+    # 加载配置文件（只解析受支持的赋值语句，不执行任意 shell 代码）
+    if parse_config_file "$config_file"; then
         CONFIG_LOADED=true
         CONFIG_FILE_PATH="$config_file"
         echo "配置文件已加载: $config_file" >&2
@@ -86,15 +86,139 @@ validate_config_file() {
         return 1
     fi
 
-    # 基本语法检查
-    if ! bash -n "$config_file" >/dev/null 2>&1; then
-        echo "配置文件语法错误: $config_file" >&2
+    # 逐行校验：只允许注释、空行、简单 KEY=VALUE 和 KEY=(...) 数组赋值
+    local line line_no=0 in_array=false
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        ((line_no++))
+        [[ "$line" =~ ^[[:space:]]*$ || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        if $in_array; then
+            local item_line
+            item_line="${line#"${line%%[![:space:]]*}"}"
+            item_line="${item_line%"${item_line##*[![:space:]]}"}"
+            if [[ "$item_line" == ")" ]]; then
+                in_array=false
+                continue
+            fi
+            if [[ "$item_line" == "\""*"\"" || "$item_line" == "'"*"'" || "$item_line" =~ ^[A-Za-z0-9._:/@%+-]+$ ]]; then
+                continue
+            fi
+            echo "配置文件第 ${line_no} 行数组项格式不支持: $config_file" >&2
+            return 1
+        fi
+
+        if [[ "$line" =~ ^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=\([[:space:]]*$ ]]; then
+            in_array=true
+            continue
+        fi
+
+        if [[ "$line" =~ ^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*= ]]; then
+            continue
+        fi
+
+        echo "配置文件第 ${line_no} 行格式不支持: $config_file" >&2
+        return 1
+    done < "$config_file"
+
+    if $in_array; then
+        echo "配置文件数组未闭合: $config_file" >&2
         return 1
     fi
 
-    # 检查危险命令
-    if grep -qE '`|\$\(|\|\||&&|;|>|<|\||rm |dd |mkfs|fdisk' "$config_file"; then
-        echo "配置文件包含危险命令: $config_file" >&2
+    return 0
+}
+
+# 展开配置值中的简单 $VAR / ${VAR} 引用（不执行命令）
+_expand_config_value() {
+    local value="$1"
+    local name var_ref
+
+    while [[ "$value" =~ \$\{([A-Za-z_][A-Za-z0-9_]*)\} ]]; do
+        name="${BASH_REMATCH[1]}"
+        var_ref="${!name:-}"
+        value="${value//\$\{$name\}/$var_ref}"
+    done
+
+    while [[ "$value" =~ \$([A-Za-z_][A-Za-z0-9_]*) ]]; do
+        name="${BASH_REMATCH[1]}"
+        var_ref="${!name:-}"
+        value="${value//\$$name/$var_ref}"
+    done
+
+    printf '%s' "$value"
+}
+
+# 解析配置文件（不执行任意 shell 代码）
+parse_config_file() {
+    local config_file="$1"
+    local line key value array_key=""
+    local -a array_values=()
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ "$line" =~ ^[[:space:]]*$ || "$line" =~ ^[[:space:]]*# ]] && continue
+
+        if [[ -n "$array_key" ]]; then
+            if [[ "$line" =~ ^[[:space:]]*\)[[:space:]]*$ ]]; then
+                declare -g -a "$array_key"
+                local -n target_array="$array_key"
+                target_array=("${array_values[@]}")
+                unset -n target_array
+                array_key=""
+                array_values=()
+                continue
+            fi
+
+            value="${line#"${line%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            fi
+            array_values+=("$(_expand_config_value "$value")")
+            continue
+        fi
+
+        line="${line%%#*}"
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key//[[:space:]]/}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+
+        if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            echo "配置键名无效: $key" >&2
+            return 1
+        fi
+
+        if [[ "$value" == "(" ]]; then
+            array_key="$key"
+            array_values=()
+        elif [[ "$value" =~ ^\((.*)\)$ ]]; then
+            local array_body="${BASH_REMATCH[1]}"
+            read -r -a array_values <<< "$array_body"
+            declare -g -a "$key"
+            local item
+            # shellcheck disable=SC2178
+            local -n target_array="$key"
+            target_array=()
+            for item in "${array_values[@]}"; do
+                item="${item%\"}"
+                item="${item#\"}"
+                target_array+=("$(_expand_config_value "$item")")
+            done
+            unset -n target_array
+            array_values=()
+        else
+            if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then
+                value="${BASH_REMATCH[1]}"
+            fi
+            value="$(_expand_config_value "$value")"
+            printf -v "$key" '%s' "$value"
+            declare -gx "$key"
+        fi
+    done < "$config_file"
+
+    if [[ -n "$array_key" ]]; then
+        echo "配置数组未闭合: $array_key" >&2
         return 1
     fi
 

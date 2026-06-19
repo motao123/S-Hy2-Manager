@@ -4,7 +4,7 @@
 
 Hysteria2 代理服务器一键部署与管理工具
 
-**当前版本：v2.0.1**
+**当前版本：v2.0.2**
 
 **作者：陌涛**
 
@@ -27,7 +27,7 @@ Hysteria2 代理服务器一键部署与管理工具
 | 出站 | Direct / SOCKS5 / HTTP 代理规则管理 |
 | 运维 | 配置备份恢复、日志管理、流量统计、速度测试 |
 | 网络 | 防火墙自动配置、端口跳跃、DNS 管理、ACL 规则、带宽限制 |
-| 安全 | 输入注入防护、安全临时文件、SHA256 完整性校验、安全下载 |
+| 安全 | 输入注入防护、安全临时文件、SHA256 完整性校验、安全下载、Tar Slip 防护、安全 YAML 写入 |
 | 更新 | Hysteria2 二进制更新 + 脚本自身更新 |
 
 ## 快速安装
@@ -57,6 +57,14 @@ sudo ./hy2-manager.sh
 - systemd
 
 ## 最近更新
+
+### v2.0.2（2026-06-20）
+
+- 修复备份恢复前未校验 tar 成员路径的问题，阻止绝对路径与 `..` 路径遍历覆盖系统文件。
+- 统一远程安装、卸载、更新脚本执行入口，下载后执行语法检查与 SHA256 记录校验。
+- 将 ACME、自签名和快速配置生成统一改为安全 YAML 写入，避免特殊字符破坏配置结构。
+- 将参考配置加载器改为只解析受支持的赋值语句，不再 `source` 执行配置文件。
+- 将端口跳跃相关 iptables 规则删除改为数组参数执行，并补充 ShellCheck CI。
 
 ### v2.0.1（2026-04-29）
 
@@ -169,6 +177,7 @@ S-Hy2-Manager/
 ├── contrib/                    # 参考材料（非生产代码）
 │
 └── .github/workflows/
+    ├── pages.yml               # GitHub Pages 部署
     └── shellcheck.yml          # CI — ShellCheck 代码检查
 ```
 
@@ -184,7 +193,7 @@ S-Hy2-Manager/
 
 ### 代码规范
 
-- ShellCheck 检查通过（CI 强制）
+- ShellCheck 核心脚本检查通过（CI 强制）
 - 变量双引号包裹：`"$var"` 而非 `$var`
 - `local` 声明与赋值分开：
   ```bash
@@ -206,6 +215,13 @@ S-Hy2-Manager/
 | `HYSTERIA_SERVICE` | `hysteria-server.service` |
 
 ## 更新日志
+
+### v2.0.2
+- 安全修复：备份恢复增加 Tar Slip 路径校验并收紧备份目录权限
+- 安全修复：远程脚本执行统一走下载、语法检查、SHA256 记录校验入口
+- 安全修复：配置生成统一使用 `yaml_write_kv()` / `replace_config_file_securely()`
+- 安全修复：`contrib/config-loader.sh` 改为安全解析配置，不再 `source` 执行
+- 工程化：补充 ShellCheck GitHub Actions，并同步 Pages/README 安全说明
 
 ### v2.0.1
 - 版本号更新为 `v2.0.1`

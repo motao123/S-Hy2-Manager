@@ -307,7 +307,7 @@ disable_port_hopping() {
                 current_rules=$(iptables-save -t nat 2>/dev/null | grep "^-A PREROUTING.*REDIRECT")
                 if [[ -z "$current_rules" ]]; then
                     echo -e "${YELLOW}系统中没有端口跳跃规则${NC}"
-                    break
+                    return 0
                 fi
                 
                 # 显示所有目标端口及其规则信息
@@ -387,7 +387,7 @@ disable_port_hopping() {
                 save_rules=$(iptables-save -t nat 2>/dev/null | grep "^-A PREROUTING.*REDIRECT")
                 if [[ -z "$save_rules" ]]; then
                     echo -e "${YELLOW}系统中没有端口跳跃规则${NC}"
-                    break
+                    return 0
                 fi
                 
                 echo -e "${YELLOW}当前所有规则:${NC}"
@@ -431,7 +431,9 @@ disable_port_hopping() {
                     if [[ $confirm =~ ^[Yy]$ ]]; then
                         # 将-A改为-D来删除规则
                         local delete_rule="${selected_rule/-A/-D}"
-                        if iptables -t nat $delete_rule 2>/dev/null; then
+                        local delete_rule_args=()
+                        read -r -a delete_rule_args <<< "$delete_rule"
+                        if iptables -t nat "${delete_rule_args[@]}" 2>/dev/null; then
                             log_success "规则已删除"
                         else
                             log_error "删除规则失败"

@@ -125,38 +125,17 @@ install_hysteria2_binary() {
 
     echo "正在安装 Hysteria2..."
 
-    # 安全方式：先下载到临时文件，验证语法后再执行，避免管道执行风险
-    local tmp_install
-    tmp_install=$(mktemp /tmp/s-hy2-install.XXXXXX)
-    chmod 600 "$tmp_install"
+    # 安全方式：统一通过 fetch_and_run_script 下载、语法校验、完整性校验后执行
+    # hash_type=hysteria-install：与本地记录的 SHA256 比对，检测劫持/篡改
+    fetch_and_run_script "$install_script_url" "hysteria-install"
+    local rc=$?
 
-    if ! curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_install" "$install_script_url"; then
-        log_error "安装脚本下载失败"
-        rm -f "$tmp_install"
-        return 1
-    fi
-
-    # 验证脚本语法
-    if ! bash -n "$tmp_install"; then
-        log_error "下载的安装脚本语法检查失败，已拒绝执行"
-        rm -f "$tmp_install"
-        return 1
-    fi
-
-    # 执行安装脚本并捕获输出
-    local output
-    if output=$(timeout 300 bash "$tmp_install" 2>&1); then
-        rm -f "$tmp_install"
-        # 显示关键信息（如果有）
-        echo "$output" | grep -E "(Installing|Success|Complete|installed|完成|成功)" | head -3 || true
+    if [[ $rc -eq 0 ]]; then
         echo "✓ 安装成功"
         return 0
     else
-        local exit_code=$?
-        rm -f "$tmp_install"
         log_error "安装失败"
-        echo "$output" | tail -5  # 显示最后几行错误信息
-        return $exit_code
+        return $rc
     fi
 }
 
@@ -371,48 +350,30 @@ install_hysteria2() {
 # 卸载函数 (如果需要在这里处理)
 uninstall_hysteria2() {
     log_info "卸载 Hysteria2..."
-    
+
     # 停止服务
     if systemctl is-active --quiet hysteria-server; then
         systemctl stop hysteria-server
         log_info "已停止服务"
     fi
-    
+
     # 禁用服务
     if systemctl is-enabled --quiet hysteria-server 2>/dev/null; then
         systemctl disable hysteria-server
         log_info "已禁用服务"
     fi
-    
-    # 使用官方卸载方法（安全方式：先下载到临时文件，验证语法后执行）
-    local tmp_uninstall
-    tmp_uninstall=$(mktemp /tmp/s-hy2-uninstall.XXXXXX)
-    chmod 600 "$tmp_uninstall"
 
-    if curl -fsSL --proto "=https" --tlsv1.2 -o "$tmp_uninstall" "https://get.hy2.sh/"; then
-        # 验证脚本语法
-        if bash -n "$tmp_uninstall"; then
-            bash "$tmp_uninstall" --remove
-            local exit_code=$?
-            rm -f "$tmp_uninstall"
-            if [[ $exit_code -eq 0 ]]; then
-                log_success "Hysteria2 卸载成功"
-            else
-                log_error "卸载失败，请手动清理"
-                return 1
-            fi
-        else
-            log_error "下载的卸载脚本语法检查失败，已拒绝执行"
-            rm -f "$tmp_uninstall"
-            return 1
-        fi
+    # 使用官方卸载方法（统一通过 fetch_and_run_script 安全下载校验后执行）
+    fetch_and_run_script "https://get.hy2.sh/" "hysteria-install" --remove
+    local rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+        log_success "Hysteria2 卸载成功"
+        return 0
     else
-        rm -f "$tmp_uninstall"
-        log_error "卸载脚本下载失败，请手动清理"
+        log_error "卸载失败，请手动清理"
         return 1
     fi
-    
-    return 0
 }
 
 # 如果脚本被直接运行
