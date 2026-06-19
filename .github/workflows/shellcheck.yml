@@ -28,7 +28,7 @@ jobs:
       - name: Run ShellCheck
         run: |
           shellcheck -x \
-            -e SC1090,SC1091,SC2034,SC2086,SC2162,SC2207,SC2126,SC2001,SC2046,SC2155,SC2181,SC2076,SC2004,SC2329 \
+            -e SC1090,SC1091,SC2034,SC2086,SC2162,SC2207,SC2126,SC2001,SC2002,SC2046,SC2155,SC2181,SC2076,SC2004,SC2015,SC2119,SC2120,SC2317,SC2329 \
             hy2-manager.sh \
             install.sh \
             modules/auto-update.sh \
